@@ -1,4 +1,10 @@
 env: "dev"
-storage_path: "storage/storage.db"
+pgsql:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "password123"
+  dbname: "stories_db"
+  sslmode: "disable"
 http_server:
   address: "localhost:8080"

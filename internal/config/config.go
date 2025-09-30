@@ -9,13 +9,22 @@ import (
 )
 
 type Config struct {
-	Env         string     `yaml:"env" env-required:"true" env-default:"production"`
-	StoragePath string     `yaml:"storage_path" env-required:"true"`
-	HTTPServer  HTTPServer `yaml:"http_server" env-required:"true"`
+	Env        string     `yaml:"env" env-required:"true" env-default:"production"`
+	PGSQL      PQSQL      `yaml:"pgsql" env-required:"true"`
+	HTTPServer HTTPServer `yaml:"http_server" env-required:"true"`
 }
 
 type HTTPServer struct {
 	Address string `yaml:"address" env-required:"true" env-default:"localhost:8080"`
+}
+
+type PQSQL struct {
+	Host     string `yaml:"host" env-required:"true" env-default:"localhost"`
+	Port     string `yaml:"port" env-required:"true" env-default:"5432"`
+	User     string `yaml:"user" env-required:"true" env-default:"postgres"`
+	Password string `yaml:"password" env-required:"true" env-default:"password"`
+	DBName   string `yaml:"dbname" env-required:"true" env-default:"stories_db"`
+	SSLMode  string `yaml:"sslmode" env-required:"true" env-default:"disable"`
 }
 
 func MustLoad() *Config {
