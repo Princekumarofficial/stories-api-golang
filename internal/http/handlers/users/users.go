@@ -9,6 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/princekumarofficial/stories-service/internal/storage"
 	"github.com/princekumarofficial/stories-service/internal/types/users"
+	"github.com/princekumarofficial/stories-service/internal/utils/jwt"
 	"github.com/princekumarofficial/stories-service/internal/utils/password"
 	"github.com/princekumarofficial/stories-service/internal/utils/response"
 )
@@ -72,7 +73,7 @@ func SignUp(storage storage.Storage) http.HandlerFunc {
 // @Failure 400 {object} response.Response "Bad request"
 // @Failure 401 {object} response.Response "Unauthorized"
 // @Router /login [post]
-func Login(storage storage.Storage) http.HandlerFunc {
+func Login(storage storage.Storage, JWTSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var signinReq users.SignInRequest
 
@@ -106,9 +107,15 @@ func Login(storage storage.Storage) http.HandlerFunc {
 			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("invalid email or password")))
 			return
 		}
+		token, err := jwt.CreateToken(userID, JWTSecret)
+		if err != nil {
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(errors.New("failed to generate token")))
+			return
+		}
 
 		response.WriteJSON(w, http.StatusOK, map[string]string{
 			"user_id": userID,
+			"token":   token,
 		})
 	}
 }

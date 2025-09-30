@@ -44,7 +44,7 @@ func main() {
 	router.HandleFunc("GET /feed", stories.Feed())
 	router.HandleFunc("POST /stories", stories.PostStory(storage))
 	router.HandleFunc("POST /signup", users.SignUp(storage))
-	router.HandleFunc("POST /login", users.Login(storage))
+	router.HandleFunc("POST /login", users.Login(storage, cfg.JWTSecret))
 
 	// Swagger UI endpoint
 	router.HandleFunc("GET /swagger/", httpSwagger.WrapHandler)

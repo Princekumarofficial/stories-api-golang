@@ -8,3 +8,4 @@ pgsql:
   sslmode: "disable"
 http_server:
   address: "localhost:8080"
+jwt_secret: "not_so_secret_key"

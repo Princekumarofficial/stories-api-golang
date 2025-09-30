@@ -12,6 +12,7 @@ type Config struct {
 	Env        string     `yaml:"env" env-required:"true" env-default:"production"`
 	PGSQL      PQSQL      `yaml:"pgsql" env-required:"true"`
 	HTTPServer HTTPServer `yaml:"http_server" env-required:"true"`
+	JWTSecret  string     `yaml:"jwt_secret" env-required:"true" env-default:"super_secret_key"`
 }
 
 type HTTPServer struct {
