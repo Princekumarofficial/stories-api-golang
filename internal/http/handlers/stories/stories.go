@@ -13,12 +13,22 @@ import (
 	"github.com/princekumarofficial/stories-service/internal/utils/response"
 )
 
+// Feed handles the stories feed endpoint
+// @Summary Get stories feed
+// @Tags stories
+// @Router /feed [get]
 func Feed() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("This is the feed endpoint"))
 	}
 }
 
+// PostStory handles creating a new story
+// @Summary Create a new story
+// @Tags stories
+// @Accept json
+// @Param story body types.StoryPostRequest true "Story content"
+// @Router /stories [post]
 func PostStory(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var story types.StoryPostRequest

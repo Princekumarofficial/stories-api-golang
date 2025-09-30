@@ -1,0 +1,70 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "A simple stories service API",
+        "title": "Stories Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/feed": {
+            "get": {
+                "tags": [
+                    "stories"
+                ],
+                "summary": "Get stories feed",
+                "responses": {}
+            }
+        },
+        "/stories": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stories"
+                ],
+                "summary": "Create a new story",
+                "parameters": [
+                    {
+                        "description": "Story content",
+                        "name": "story",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.StoryPostRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        }
+    },
+    "definitions": {
+        "types.StoryPostRequest": {
+            "type": "object",
+            "required": [
+                "audience_user_ids",
+                "visibility"
+            ],
+            "properties": {
+                "audience_user_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "media_key": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"github.com/princekumarofficial/stories-service/internal/config"
 )
 
@@ -60,27 +59,17 @@ func (p *Postgres) CreateTables() error {
 }
 
 func (p *Postgres) CreateStory(authorID, text, mediaKey, visibility string, audienceUserIDs []string) (string, error) {
-	var storyID string
+	var storyID int
 	query := `
 	INSERT INTO stories (author_id, text, media_key, visibility, audience_user_ids)
 	VALUES ($1, $2, $3, $4, $5)
+	RETURNING id
 	`
-	stmt, err := p.Db.Prepare(query)
-	if err != nil {
-		return "", err
-	}
-	defer stmt.Close()
 
-	result, err := stmt.Exec(authorID, text, mediaKey, visibility, pq.Array(audienceUserIDs))
+	err := p.Db.QueryRow(query, authorID, text, mediaKey, visibility, pq.Array(audienceUserIDs)).Scan(&storyID)
 	if err != nil {
 		return "", err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return "", err
-	}
-
-	storyID = fmt.Sprintf("%d", id)
-	return storyID, nil
+	return fmt.Sprintf("%d", storyID), nil
 }

@@ -1,0 +1,46 @@
+basePath: /
+definitions:
+  types.StoryPostRequest:
+    properties:
+      audience_user_ids:
+        items:
+          type: string
+        type: array
+      media_key:
+        type: string
+      text:
+        type: string
+      visibility:
+        type: string
+    required:
+    - audience_user_ids
+    - visibility
+    type: object
+info:
+  contact: {}
+  description: A simple stories service API
+  title: Stories Service API
+  version: "1.0"
+paths:
+  /feed:
+    get:
+      responses: {}
+      summary: Get stories feed
+      tags:
+      - stories
+  /stories:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Story content
+        in: body
+        name: story
+        required: true
+        schema:
+          $ref: '#/definitions/types.StoryPostRequest'
+      responses: {}
+      summary: Create a new story
+      tags:
+      - stories
+swagger: "2.0"

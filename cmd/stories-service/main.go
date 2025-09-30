@@ -10,10 +10,18 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/princekumarofficial/stories-service/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
+
 	"github.com/princekumarofficial/stories-service/internal/config"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/stories"
 	"github.com/princekumarofficial/stories-service/internal/storage/postgres"
 )
+
+// @title Stories Service API
+// @version 1.0
+// @description A simple stories service API
+// @BasePath /
 
 func main() {
 	// load config
@@ -34,6 +42,9 @@ func main() {
 	})
 	router.HandleFunc("GET /feed", stories.Feed())
 	router.HandleFunc("POST /stories", stories.PostStory(storage))
+
+	// Swagger UI endpoint
+	router.HandleFunc("GET /swagger/", httpSwagger.WrapHandler)
 
 	// setup router
 
