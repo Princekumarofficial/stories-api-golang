@@ -50,10 +50,10 @@ func main() {
 		w.Write([]byte("Hello, World!"))
 	})
 	router.HandleFunc("GET /feed", stories.Feed())
-	
+
 	// Protected routes
 	router.Handle("POST /stories", authMiddleware(http.HandlerFunc(stories.PostStory(storage))))
-	
+
 	// Public routes
 	router.HandleFunc("POST /signup", users.SignUp(storage))
 	router.HandleFunc("POST /login", users.Login(storage, cfg.JWTSecret))
