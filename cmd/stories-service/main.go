@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/princekumarofficial/stories-service/internal/config"
 )
@@ -25,8 +31,28 @@ func main() {
 	}
 
 	log.Println("server started on", cfg.HTTPServer.Address)
-	err := server.ListenAndServe()
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatalf("failed to start server: %s", err)
+		}
+	}()
+
+	<-done
+
+	slog.Info("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := server.Shutdown(ctx)
 	if err != nil {
-		log.Fatalf("failed to start server: %s", err)
+		slog.Error("failed to gracefully shutdown server", slog.String("error", err.Error()))
+		return
 	}
+
+	slog.Info("Server stopped")
 }
