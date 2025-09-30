@@ -37,3 +37,30 @@ func VerifyToken(tokenString string, secretKey string) error {
 
 	return nil
 }
+
+// ExtractUserIDFromToken extracts the user ID from a valid JWT token
+func ExtractUserIDFromToken(tokenString string, secretKey string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if !token.Valid {
+		return "", fmt.Errorf("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid token claims")
+	}
+
+	username, ok := claims["username"].(string)
+	if !ok {
+		return "", fmt.Errorf("username not found in token")
+	}
+
+	return username, nil
+}

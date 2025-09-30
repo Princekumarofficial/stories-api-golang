@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/princekumarofficial/stories-service/internal/http/middleware"
 	"github.com/princekumarofficial/stories-service/internal/storage"
 	"github.com/princekumarofficial/stories-service/internal/types"
 	"github.com/princekumarofficial/stories-service/internal/utils/response"
@@ -25,12 +26,26 @@ func Feed() http.HandlerFunc {
 
 // PostStory handles creating a new story
 // @Summary Create a new story
+// @Description Create a new story with authentication required
 // @Tags stories
 // @Accept json
+// @Produce json
 // @Param story body types.StoryPostRequest true "Story content"
+// @Success 201 {object} map[string]string "Story created successfully"
+// @Failure 400 {object} response.Response "Bad request"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Security BearerAuth
 // @Router /stories [post]
 func PostStory(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract user ID from context
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("user not authenticated")))
+			return
+		}
+
 		var story types.StoryPostRequest
 
 		err := json.NewDecoder(r.Body).Decode(&story)
@@ -54,7 +69,7 @@ func PostStory(storage storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		storyID, err := storage.CreateStory("1", story.Text, story.MediaKey, story.Visibility, story.AudienceUserIDs)
+		storyID, err := storage.CreateStory(userID, story.Text, story.MediaKey, story.Visibility, story.AudienceUserIDs)
 		if err != nil {
 			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
 			return

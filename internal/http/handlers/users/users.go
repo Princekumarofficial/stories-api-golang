@@ -16,8 +16,10 @@ import (
 
 // SignUp handles user registration
 // @Summary Register a new user
+// @Description Register a new user account
 // @Tags users
 // @Accept json
+// @Produce json
 // @Param user body users.SignUpRequest true "User registration details"
 // @Success 201 {object} map[string]string "User created successfully"
 // @Failure 400 {object} response.Response "Bad request"
@@ -66,10 +68,12 @@ func SignUp(storage storage.Storage) http.HandlerFunc {
 
 // Login handles user authentication
 // @Summary Authenticate a user
+// @Description Authenticate a user and return JWT token
 // @Tags users
 // @Accept json
+// @Produce json
 // @Param user body users.SignInRequest true "User login details"
-// @Success 200 {object} map[string]string "User authenticated successfully"
+// @Success 200 {object} map[string]string "User authenticated successfully with token"
 // @Failure 400 {object} response.Response "Bad request"
 // @Failure 401 {object} response.Response "Unauthorized"
 // @Router /login [post]

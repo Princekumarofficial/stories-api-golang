@@ -16,6 +16,7 @@ import (
 	"github.com/princekumarofficial/stories-service/internal/config"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/stories"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/users"
+	"github.com/princekumarofficial/stories-service/internal/http/middleware"
 	"github.com/princekumarofficial/stories-service/internal/storage/postgres"
 )
 
@@ -23,6 +24,10 @@ import (
 // @version 1.0
 // @description A simple stories service API
 // @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
 	// load config
@@ -38,11 +43,18 @@ func main() {
 	// setup server
 	router := http.NewServeMux()
 
+	// Create auth middleware
+	authMiddleware := middleware.AuthMiddleware(cfg.JWTSecret)
+
 	router.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Hello, World!"))
 	})
 	router.HandleFunc("GET /feed", stories.Feed())
-	router.HandleFunc("POST /stories", stories.PostStory(storage))
+	
+	// Protected routes
+	router.Handle("POST /stories", authMiddleware(http.HandlerFunc(stories.PostStory(storage))))
+	
+	// Public routes
 	router.HandleFunc("POST /signup", users.SignUp(storage))
 	router.HandleFunc("POST /login", users.Login(storage, cfg.JWTSecret))
 

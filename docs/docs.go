@@ -26,7 +26,11 @@ const docTemplate = `{
         },
         "/login": {
             "post": {
+                "description": "Authenticate a user and return JWT token",
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -46,7 +50,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "User authenticated successfully",
+                        "description": "User authenticated successfully with token",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -71,7 +75,11 @@ const docTemplate = `{
         },
         "/signup": {
             "post": {
+                "description": "Register a new user account",
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -116,7 +124,16 @@ const docTemplate = `{
         },
         "/stories": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new story with authentication required",
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -134,7 +151,35 @@ const docTemplate = `{
                         }
                     }
                 ],
-                "responses": {}
+                "responses": {
+                    "201": {
+                        "description": "Story created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
             }
         }
     },
@@ -205,6 +250,14 @@ const docTemplate = `{
                     "minLength": 6
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
