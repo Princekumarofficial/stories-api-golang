@@ -42,20 +42,35 @@ func NewPostgres(cfg *config.Config) (*Postgres, error) {
 }
 
 func (p *Postgres) CreateTables() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS stories (
-		id SERIAL PRIMARY KEY,
-		author_id VARCHAR(255) NOT NULL,
-		text TEXT,
-		media_key VARCHAR(255),
-		visibility VARCHAR(50) NOT NULL,
-		audience_user_ids TEXT[],
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	);
-	`
+	queries := []string{
+		`
+		CREATE TABLE IF NOT EXISTS users (
+			id SERIAL PRIMARY KEY,
+			email VARCHAR(255) UNIQUE NOT NULL,
+			password TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+		`,
+		`
+		CREATE TABLE IF NOT EXISTS stories (
+			id SERIAL PRIMARY KEY,
+			author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			text TEXT,
+			media_key VARCHAR(255),
+			visibility VARCHAR(50) NOT NULL,
+			audience_user_ids TEXT[],
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+		`,
+	}
 
-	_, err := p.Db.Exec(query)
-	return err
+	for _, q := range queries {
+		if _, err := p.Db.Exec(q); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *Postgres) CreateStory(authorID, text, mediaKey, visibility string, audienceUserIDs []string) (string, error) {
@@ -72,4 +87,35 @@ func (p *Postgres) CreateStory(authorID, text, mediaKey, visibility string, audi
 	}
 
 	return fmt.Sprintf("%d", storyID), nil
+}
+
+func (p *Postgres) CreateUser(email, password string) (string, error) {
+	var userID int
+	query := `
+	INSERT INTO users (email, password)
+	VALUES ($1, $2)
+	RETURNING id
+	`
+
+	err := p.Db.QueryRow(query, email, password).Scan(&userID)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%d", userID), nil
+}
+
+func (p *Postgres) GetUserByEmail(email string) (string, string, error) {
+	var userID int
+	var hashedPassword string
+	query := `
+	SELECT id, password FROM users WHERE email = $1
+	`
+
+	err := p.Db.QueryRow(query, email).Scan(&userID, &hashedPassword)
+	if err != nil {
+		return "", "", err
+	}
+
+	return fmt.Sprintf("%d", userID), hashedPassword, nil
 }

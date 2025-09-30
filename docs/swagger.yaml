@@ -1,5 +1,12 @@
 basePath: /
 definitions:
+  response.Response:
+    properties:
+      error:
+        type: string
+      status:
+        type: string
+    type: object
   types.StoryPostRequest:
     properties:
       audience_user_ids:
@@ -16,6 +23,28 @@ definitions:
     - audience_user_ids
     - visibility
     type: object
+  users.SignInRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  users.SignUpRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
 info:
   contact: {}
   description: A simple stories service API
@@ -28,6 +57,64 @@ paths:
       summary: Get stories feed
       tags:
       - stories
+  /login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User login details
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/users.SignInRequest'
+      responses:
+        "200":
+          description: User authenticated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Authenticate a user
+      tags:
+      - users
+  /signup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User registration details
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/users.SignUpRequest'
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Register a new user
+      tags:
+      - users
   /stories:
     post:
       consumes:

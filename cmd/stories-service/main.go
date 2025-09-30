@@ -15,6 +15,7 @@ import (
 
 	"github.com/princekumarofficial/stories-service/internal/config"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/stories"
+	"github.com/princekumarofficial/stories-service/internal/http/handlers/users"
 	"github.com/princekumarofficial/stories-service/internal/storage/postgres"
 )
 
@@ -42,6 +43,8 @@ func main() {
 	})
 	router.HandleFunc("GET /feed", stories.Feed())
 	router.HandleFunc("POST /stories", stories.PostStory(storage))
+	router.HandleFunc("POST /signup", users.SignUp(storage))
+	router.HandleFunc("POST /login", users.Login(storage))
 
 	// Swagger UI endpoint
 	router.HandleFunc("GET /swagger/", httpSwagger.WrapHandler)
