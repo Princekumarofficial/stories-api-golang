@@ -57,11 +57,37 @@ func (p *Postgres) CreateTables() error {
 			author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			text TEXT,
 			media_key VARCHAR(255),
-			visibility VARCHAR(50) NOT NULL,
-			audience_user_ids TEXT[],
+			visibility VARCHAR(50) NOT NULL CHECK (visibility IN ('FRIENDS','PRIVATE')),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours'),
 		);
 		`,
+		`
+		CREATE TABLE IF NOT EXISTS story_audience (
+			story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			PRIMARY KEY (story_id, user_id)
+		);
+		`,
+		`CREATE TABLE IF NOT EXISTS story_views (
+			id SERIAL PRIMARY KEY,
+			story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+			viewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS reactions (
+			id SERIAL PRIMARY KEY,
+			story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+			user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			reaction_type VARCHAR(50) NOT NULL,
+			reacted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS follows (
+			follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			followed_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (follower_id, followed_id)
+		);`,
 	}
 
 	for _, q := range queries {
