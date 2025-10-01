@@ -37,7 +37,23 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v ./...
+        run: |
+          # Run tests and check if there are any actual test files
+          TEST_OUTPUT=$(go test -v ./... 2>&1)
+          echo "$TEST_OUTPUT"
+          
+          # Check for test failures
+          if echo "$TEST_OUTPUT" | grep -q "FAIL"; then
+            echo "❌ Tests failed"
+            exit 1
+          fi
+          
+          # Check if we have any actual tests
+          if echo "$TEST_OUTPUT" | grep -q "=== RUN"; then
+            echo "✅ Tests passed"
+          else
+            echo "⚠️  No test files found - this is OK for now"
+          fi
 
       - name: Run go vet
         run: go vet ./...

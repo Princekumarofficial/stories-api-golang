@@ -5,17 +5,38 @@ import (
 	"testing"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/alicebob/miniredis/v2"
 )
 
-func TestTokenBucket_Allow(t *testing.T) {
-	// Use Redis test database
+// setupTestRedis creates an in-memory Redis server for testing
+func setupTestRedis(t *testing.T) (*redis.Client, func()) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("Failed to start miniredis: %v", err)
+	}
+
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   1, // Use a different database for testing
+		Addr: mr.Addr(),
+		DB:   0,
 	})
 
-	// Clean up any existing test data
-	defer redisClient.FlushDB(context.Background())
+	// Test connection
+	_, err = redisClient.Ping(context.Background()).Result()
+	if err != nil {
+		t.Fatalf("Failed to connect to test Redis: %v", err)
+	}
+
+	cleanup := func() {
+		redisClient.Close()
+		mr.Close()
+	}
+
+	return redisClient, cleanup
+}
+
+func TestTokenBucket_Allow(t *testing.T) {
+	redisClient, cleanup := setupTestRedis(t)
+	defer cleanup()
 
 	// Create token bucket with 5 tokens, refill 5 per minute
 	bucket := NewTokenBucket(redisClient, 5, 5)
@@ -55,12 +76,8 @@ func TestTokenBucket_Allow(t *testing.T) {
 }
 
 func TestTokenBucket_GetRemaining(t *testing.T) {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   1,
-	})
-
-	defer redisClient.FlushDB(context.Background())
+	redisClient, cleanup := setupTestRedis(t)
+	defer cleanup()
 
 	bucket := NewTokenBucket(redisClient, 10, 10)
 
@@ -93,12 +110,8 @@ func TestTokenBucket_GetRemaining(t *testing.T) {
 }
 
 func TestTokenBucket_Reset(t *testing.T) {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   1,
-	})
-
-	defer redisClient.FlushDB(context.Background())
+	redisClient, cleanup := setupTestRedis(t)
+	defer cleanup()
 
 	bucket := NewTokenBucket(redisClient, 5, 5)
 
