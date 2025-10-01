@@ -15,6 +15,7 @@ type Config struct {
 	JWTSecret  string     `yaml:"jwt_secret" env-required:"true" env-default:"super_secret_key"`
 	MinIO      MinIO      `yaml:"minio" env-required:"true"`
 	Media      Media      `yaml:"media" env-required:"true"`
+	Redis      Redis      `yaml:"redis" env-required:"true"`
 }
 
 type HTTPServer struct {
@@ -42,6 +43,12 @@ type Media struct {
 	MaxFileSize      int64    `yaml:"max_file_size" env-default:"10485760"` // 10MB default
 	AllowedMimeTypes []string `yaml:"allowed_mime_types" env-default:"image/jpeg,image/png,image/gif,video/mp4,video/mpeg"`
 	PresignedURLTTL  int      `yaml:"presigned_url_ttl" env-default:"3600"` // 1 hour default in seconds
+}
+
+type Redis struct {
+	Address  string `yaml:"address" env-required:"true" env-default:"localhost:6379"`
+	Password string `yaml:"password" env-default:""`
+	DB       int    `yaml:"db" env-default:"0"`
 }
 
 func MustLoad() *Config {

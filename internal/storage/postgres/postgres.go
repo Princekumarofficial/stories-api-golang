@@ -114,43 +114,43 @@ func (p *Postgres) CreateIndexes() error {
 		// Index on stories(author_id, created_at DESC) for efficient author story queries
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_author_created 
 		 ON stories (author_id, created_at DESC)`,
-		
+
 		// Index on stories(expires_at) for cleanup operations
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_expires_at 
 		 ON stories (expires_at)`,
-		
+
 		// Partial index on stories where deleted_at is null (active stories only)
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_active 
 		 ON stories (id, created_at DESC) WHERE deleted_at IS NULL`,
-		
+
 		// Index on story_views(story_id) for view count queries
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_story_views_story_id 
 		 ON story_views (story_id)`,
-		
+
 		// Index on reactions(story_id) for reaction queries
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_reactions_story_id 
 		 ON reactions (story_id)`,
-		
+
 		// Index on follows(follower_id) for follower queries
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_follows_follower_id 
 		 ON follows (follower_id)`,
-		
+
 		// Additional composite index for story visibility and created_at
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_visibility_created 
 		 ON stories (visibility, created_at DESC) WHERE deleted_at IS NULL`,
-		
+
 		// Index for user story queries with visibility
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_author_visibility_created 
 		 ON stories (author_id, visibility, created_at DESC) WHERE deleted_at IS NULL`,
-		
+
 		// Index for story audience queries
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_story_audience_user_id 
 		 ON story_audience (user_id)`,
-		
+
 		// Composite index for reactions by user and story
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_reactions_user_story 
 		 ON reactions (user_id, story_id)`,
-		
+
 		// Index for follows by followed_id (reverse lookup)
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_follows_followed_id 
 		 ON follows (followed_id)`,
@@ -202,7 +202,7 @@ func (p *Postgres) CheckIndexes() (map[string]bool, error) {
 	WHERE tablename IN ('stories', 'story_views', 'reactions', 'follows', 'story_audience')
 	AND indexname LIKE 'idx_%'
 	`
-	
+
 	rows, err := p.Db.Query(query)
 	if err != nil {
 		return nil, err
@@ -210,17 +210,17 @@ func (p *Postgres) CheckIndexes() (map[string]bool, error) {
 	defer rows.Close()
 
 	indexes := map[string]bool{
-		"idx_stories_author_created":           false,
-		"idx_stories_expires_at":               false,
-		"idx_stories_active":                   false,
-		"idx_story_views_story_id":             false,
-		"idx_reactions_story_id":               false,
-		"idx_follows_follower_id":              false,
-		"idx_stories_visibility_created":       false,
+		"idx_stories_author_created":            false,
+		"idx_stories_expires_at":                false,
+		"idx_stories_active":                    false,
+		"idx_story_views_story_id":              false,
+		"idx_reactions_story_id":                false,
+		"idx_follows_follower_id":               false,
+		"idx_stories_visibility_created":        false,
 		"idx_stories_author_visibility_created": false,
-		"idx_story_audience_user_id":           false,
-		"idx_reactions_user_story":             false,
-		"idx_follows_followed_id":              false,
+		"idx_story_audience_user_id":            false,
+		"idx_reactions_user_story":              false,
+		"idx_follows_followed_id":               false,
 	}
 
 	for rows.Next() {

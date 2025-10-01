@@ -24,3 +24,7 @@ media:
     - "video/mp4"
     - "video/mpeg"
   presigned_url_ttl: 3600  # 1 hour
+redis:
+  address: "localhost:6379"
+  password: ""
+  db: 0

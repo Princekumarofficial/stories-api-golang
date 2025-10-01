@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	_ "github.com/princekumarofficial/stories-service/docs"
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -37,8 +38,23 @@ import (
 func main() {
 	// load config
 	cfg := config.MustLoad()
-	// database setup
 
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Address,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
+	// Test Redis connection
+	ctx := context.Background()
+	_, err := redisClient.Ping(ctx).Result()
+	if err != nil {
+		log.Fatal("Failed to connect to Redis:", err)
+	}
+	slog.Info("Connected to Redis")
+
+	// database setup
 	storage, err := postgres.NewPostgres(cfg)
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
@@ -63,6 +79,9 @@ func main() {
 	// Initialize handlers
 	mediaHandlers := media.NewMediaHandlers(mediaService)
 
+	// Initialize rate limiting
+	rateLimitConfig := middleware.NewRateLimitConfig(redisClient)
+
 	// setup server
 	router := http.NewServeMux()
 
@@ -76,12 +95,12 @@ func main() {
 	// WebSocket route
 	router.HandleFunc("GET /ws", wsHandler.WebSocketHandler(hub, cfg.JWTSecret))
 
-	// Protected routes
-	router.Handle("POST /stories", authMiddleware(http.HandlerFunc(stories.PostStory(storage))))
+	// Protected routes with rate limiting
+	router.Handle("POST /stories", authMiddleware(rateLimitConfig.RateLimitedHandler("stories", stories.PostStory(storage))))
 	router.Handle("GET /stories/{id}", authMiddleware(http.HandlerFunc(stories.GetStory(storage))))
 	router.Handle("GET /feed", authMiddleware(http.HandlerFunc(stories.Feed(storage))))
 	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStoryWithEvents(storage, eventPublisher))))
-	router.Handle("POST /stories/{id}/reactions", authMiddleware(http.HandlerFunc(stories.AddReactionWithEvents(storage, eventPublisher))))
+	router.Handle("POST /stories/{id}/reactions", authMiddleware(rateLimitConfig.RateLimitedHandler("reactions", stories.AddReactionWithEvents(storage, eventPublisher))))
 	router.Handle("GET /me/stats", authMiddleware(http.HandlerFunc(users.GetStats(storage))))
 
 	// Follow/Unfollow routes
@@ -126,6 +145,11 @@ func main() {
 	slog.Info("Shutting down server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	// Close Redis connection
+	if err := redisClient.Close(); err != nil {
+		slog.Error("failed to close Redis connection", slog.String("error", err.Error()))
+	}
 
 	err = server.Shutdown(ctx)
 	if err != nil {
