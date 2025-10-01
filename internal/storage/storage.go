@@ -13,6 +13,10 @@ type Storage interface {
 	RecordStoryView(storyID, viewerID string) error
 	AddReaction(storyID, userID string, emoji types.ReactionType) error
 	GetUserStats(userID string) (int, int, int, map[string]int, error)
+	// Follow methods
+	FollowUser(followerID, followedID string) error
+	UnfollowUser(followerID, followedID string) error
+	IsFollowing(followerID, followedID string) (bool, error)
 	// Ephemerality methods
 	SoftDeleteExpiredStories() (int, error)
 }

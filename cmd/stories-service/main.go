@@ -84,6 +84,10 @@ func main() {
 	router.Handle("POST /stories/{id}/reactions", authMiddleware(http.HandlerFunc(stories.AddReactionWithEvents(storage, eventPublisher))))
 	router.Handle("GET /me/stats", authMiddleware(http.HandlerFunc(users.GetStats(storage))))
 
+	// Follow/Unfollow routes
+	router.Handle("POST /follow/{user_id}", authMiddleware(http.HandlerFunc(users.FollowUser(storage))))
+	router.Handle("DELETE /follow/{user_id}", authMiddleware(http.HandlerFunc(users.UnfollowUser(storage))))
+
 	// Media routes (protected)
 	router.Handle("POST /media/upload-url", authMiddleware(http.HandlerFunc(mediaHandlers.GenerateUploadURL())))
 	router.Handle("GET /media", authMiddleware(http.HandlerFunc(mediaHandlers.ListUserMedia())))

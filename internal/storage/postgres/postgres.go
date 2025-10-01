@@ -206,10 +206,11 @@ func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 	SELECT DISTINCT s.id, s.author_id, s.text, s.media_key, s.visibility, s.created_at, s.expires_at, COALESCE(s.deleted_at::TEXT, '') as deleted_at
 	FROM stories s
 	LEFT JOIN story_audience sa ON s.id = sa.story_id
+	LEFT JOIN follows f ON s.author_id = f.followed_id
 	WHERE 
 		s.deleted_at IS NULL AND (
 			s.visibility = 'PUBLIC'
-			OR (s.visibility = 'FRIENDS' AND sa.user_id = $1)
+			OR (s.visibility = 'FRIENDS' AND f.follower_id = $1::integer)
 			OR (s.visibility = 'PRIVATE' AND sa.user_id = $1)
 			OR s.author_id = $1::integer
 		)
@@ -402,4 +403,55 @@ func (p *Postgres) GetUserStats(userID string) (int, int, int, map[string]int, e
 	}
 
 	return posted, views, uniqueViewers, reactionCounts, nil
+}
+
+// FollowUser creates a follow relationship between two users
+func (p *Postgres) FollowUser(followerID, followedID string) error {
+	if followerID == followedID {
+		return fmt.Errorf("users cannot follow themselves")
+	}
+
+	query := `
+		INSERT INTO follows (follower_id, followed_id)
+		VALUES ($1, $2)
+		ON CONFLICT (follower_id, followed_id) DO NOTHING
+	`
+	_, err := p.Db.Exec(query, followerID, followedID)
+	return err
+}
+
+// UnfollowUser removes a follow relationship between two users
+func (p *Postgres) UnfollowUser(followerID, followedID string) error {
+	query := `
+		DELETE FROM follows
+		WHERE follower_id = $1 AND followed_id = $2
+	`
+	result, err := p.Db.Exec(query, followerID, followedID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("follow relationship not found")
+	}
+
+	return nil
+}
+
+// IsFollowing checks if one user follows another
+func (p *Postgres) IsFollowing(followerID, followedID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM follows
+			WHERE follower_id = $1 AND followed_id = $2
+		)
+	`
+	var exists bool
+	err := p.Db.QueryRow(query, followerID, followedID).Scan(&exists)
+	return exists, err
 }

@@ -141,6 +141,71 @@ paths:
       summary: Get stories feed
       tags:
       - stories
+  /follow/{user_id}:
+    delete:
+      description: Unfollow a user to stop seeing their FRIENDS visibility stories
+      parameters:
+      - description: User ID to unfollow
+        in: path
+        name: user_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: User unfollowed successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Follow relationship not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Unfollow a user
+      tags:
+      - users
+    post:
+      description: Follow another user to see their FRIENDS visibility stories
+      parameters:
+      - description: User ID to follow
+        in: path
+        name: user_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: User followed successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Follow a user
+      tags:
+      - users
   /login:
     post:
       consumes:

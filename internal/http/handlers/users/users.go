@@ -163,3 +163,86 @@ func GetStats(storage storage.Storage) http.HandlerFunc {
 		response.WriteJSON(w, http.StatusOK, stats)
 	}
 }
+
+// FollowUser handles following a user
+// @Summary Follow a user
+// @Description Follow another user to see their FRIENDS visibility stories
+// @Tags users
+// @Security BearerAuth
+// @Param user_id path string true "User ID to follow"
+// @Success 200 {object} response.Response "User followed successfully"
+// @Failure 400 {object} response.Response "Bad request"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /follow/{user_id} [post]
+func FollowUser(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract user ID from context (the follower)
+		followerID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("user not authenticated")))
+			return
+		}
+
+		// Get the user ID to follow from path
+		followedID := r.PathValue("user_id")
+		if followedID == "" {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("user_id is required")))
+			return
+		}
+
+		// Follow the user
+		err := storage.FollowUser(followerID, followedID)
+		if err != nil {
+			slog.Error("Failed to follow user", slog.String("error", err.Error()), slog.String("follower_id", followerID), slog.String("followed_id", followedID))
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(errors.New("failed to follow user")))
+			return
+		}
+
+		response.WriteJSON(w, http.StatusOK, response.RequestOK("User followed successfully", nil))
+	}
+}
+
+// UnfollowUser handles unfollowing a user
+// @Summary Unfollow a user
+// @Description Unfollow a user to stop seeing their FRIENDS visibility stories
+// @Tags users
+// @Security BearerAuth
+// @Param user_id path string true "User ID to unfollow"
+// @Success 200 {object} response.Response "User unfollowed successfully"
+// @Failure 400 {object} response.Response "Bad request"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 404 {object} response.Response "Follow relationship not found"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Router /follow/{user_id} [delete]
+func UnfollowUser(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract user ID from context (the follower)
+		followerID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("user not authenticated")))
+			return
+		}
+
+		// Get the user ID to unfollow from path
+		followedID := r.PathValue("user_id")
+		if followedID == "" {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("user_id is required")))
+			return
+		}
+
+		// Unfollow the user
+		err := storage.UnfollowUser(followerID, followedID)
+		if err != nil {
+			if err.Error() == "follow relationship not found" {
+				response.WriteJSON(w, http.StatusNotFound, response.GeneralError(errors.New("follow relationship not found")))
+				return
+			}
+			slog.Error("Failed to unfollow user", slog.String("error", err.Error()), slog.String("follower_id", followerID), slog.String("followed_id", followedID))
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(errors.New("failed to unfollow user")))
+			return
+		}
+
+		response.WriteJSON(w, http.StatusOK, response.RequestOK("User unfollowed successfully", nil))
+	}
+}

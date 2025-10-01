@@ -48,3 +48,9 @@ type Reaction struct {
 type ReactionRequest struct {
 	Emoji ReactionType `json:"emoji" validate:"required"`
 }
+
+type Follow struct {
+	FollowerID string `json:"follower_id"`
+	FollowedID string `json:"followed_id"`
+	CreatedAt  string `json:"created_at"`
+}
