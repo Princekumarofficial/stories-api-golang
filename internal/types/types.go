@@ -3,9 +3,9 @@ package types
 type Visibility string
 
 const (
-	VisibilityPublic  Visibility = "public"
-	VisibilityFriends Visibility = "friends"
-	VisibilityPrivate Visibility = "private"
+	VisibilityPublic  Visibility = "PUBLIC"
+	VisibilityFriends Visibility = "FRIENDS"
+	VisibilityPrivate Visibility = "PRIVATE"
 )
 
 type Story struct {

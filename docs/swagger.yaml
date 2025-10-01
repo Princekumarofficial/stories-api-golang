@@ -54,11 +54,21 @@ definitions:
       text:
         type: string
       visibility:
-        type: string
+        $ref: '#/definitions/types.Visibility'
     required:
     - audience_user_ids
     - visibility
     type: object
+  types.Visibility:
+    enum:
+    - public
+    - friends
+    - private
+    type: string
+    x-enum-varnames:
+    - VisibilityPublic
+    - VisibilityFriends
+    - VisibilityPrivate
   users.SignInRequest:
     properties:
       email:
@@ -90,6 +100,8 @@ paths:
   /feed:
     get:
       responses: {}
+      security:
+      - BearerAuth: []
       summary: Get stories feed
       tags:
       - stories

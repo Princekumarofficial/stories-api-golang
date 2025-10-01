@@ -17,6 +17,11 @@ const docTemplate = `{
     "paths": {
         "/feed": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "tags": [
                     "stories"
                 ],
@@ -545,9 +550,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "visibility": {
-                    "type": "string"
+                    "$ref": "#/definitions/types.Visibility"
                 }
             }
+        },
+        "types.Visibility": {
+            "type": "string",
+            "enum": [
+                "public",
+                "friends",
+                "private"
+            ],
+            "x-enum-varnames": [
+                "VisibilityPublic",
+                "VisibilityFriends",
+                "VisibilityPrivate"
+            ]
         },
         "users.SignInRequest": {
             "type": "object",

@@ -17,10 +17,24 @@ import (
 // Feed handles the stories feed endpoint
 // @Summary Get stories feed
 // @Tags stories
+// @Security BearerAuth
 // @Router /feed [get]
-func Feed() http.HandlerFunc {
+func Feed(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("This is the feed endpoint"))
+		// Extract user ID from context
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("user not authenticated")))
+			return
+		}
+
+		stories, err := storage.GetStoriesForUser(userID)
+		if err != nil {
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		response.WriteJSON(w, http.StatusOK, response.RequestOK("Stories fetched successfully", stories))
 	}
 }
 
