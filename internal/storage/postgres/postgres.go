@@ -98,7 +98,143 @@ func (p *Postgres) CreateTables() error {
 		}
 	}
 
+	// Create indexes for better performance
+	err := p.CreateIndexes()
+	if err != nil {
+		log.Printf("Warning: Failed to create some indexes: %v", err)
+		// Don't return error as indexes are not critical for basic functionality
+	}
+
 	return nil
+}
+
+// CreateIndexes creates database indexes for better query performance
+func (p *Postgres) CreateIndexes() error {
+	indexes := []string{
+		// Index on stories(author_id, created_at DESC) for efficient author story queries
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_author_created 
+		 ON stories (author_id, created_at DESC)`,
+		
+		// Index on stories(expires_at) for cleanup operations
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_expires_at 
+		 ON stories (expires_at)`,
+		
+		// Partial index on stories where deleted_at is null (active stories only)
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_active 
+		 ON stories (id, created_at DESC) WHERE deleted_at IS NULL`,
+		
+		// Index on story_views(story_id) for view count queries
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_story_views_story_id 
+		 ON story_views (story_id)`,
+		
+		// Index on reactions(story_id) for reaction queries
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_reactions_story_id 
+		 ON reactions (story_id)`,
+		
+		// Index on follows(follower_id) for follower queries
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_follows_follower_id 
+		 ON follows (follower_id)`,
+		
+		// Additional composite index for story visibility and created_at
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_visibility_created 
+		 ON stories (visibility, created_at DESC) WHERE deleted_at IS NULL`,
+		
+		// Index for user story queries with visibility
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_author_visibility_created 
+		 ON stories (author_id, visibility, created_at DESC) WHERE deleted_at IS NULL`,
+		
+		// Index for story audience queries
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_story_audience_user_id 
+		 ON story_audience (user_id)`,
+		
+		// Composite index for reactions by user and story
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_reactions_user_story 
+		 ON reactions (user_id, story_id)`,
+		
+		// Index for follows by followed_id (reverse lookup)
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_follows_followed_id 
+		 ON follows (followed_id)`,
+	}
+
+	for _, indexQuery := range indexes {
+		if _, err := p.Db.Exec(indexQuery); err != nil {
+			log.Printf("Failed to create index: %v", err)
+			// Continue with other indexes even if one fails
+		}
+	}
+
+	log.Println("Database indexes created successfully")
+	return nil
+}
+
+// DropIndexes drops all custom indexes (useful for maintenance)
+func (p *Postgres) DropIndexes() error {
+	indexes := []string{
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_stories_author_created",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_stories_expires_at",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_stories_active",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_story_views_story_id",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_reactions_story_id",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_follows_follower_id",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_stories_visibility_created",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_stories_author_visibility_created",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_story_audience_user_id",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_reactions_user_story",
+		"DROP INDEX CONCURRENTLY IF EXISTS idx_follows_followed_id",
+	}
+
+	for _, dropQuery := range indexes {
+		if _, err := p.Db.Exec(dropQuery); err != nil {
+			log.Printf("Failed to drop index: %v", err)
+			// Continue with other indexes even if one fails
+		}
+	}
+
+	log.Println("Database indexes dropped successfully")
+	return nil
+}
+
+// CheckIndexes returns information about existing indexes
+func (p *Postgres) CheckIndexes() (map[string]bool, error) {
+	query := `
+	SELECT indexname 
+	FROM pg_indexes 
+	WHERE tablename IN ('stories', 'story_views', 'reactions', 'follows', 'story_audience')
+	AND indexname LIKE 'idx_%'
+	`
+	
+	rows, err := p.Db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	indexes := map[string]bool{
+		"idx_stories_author_created":           false,
+		"idx_stories_expires_at":               false,
+		"idx_stories_active":                   false,
+		"idx_story_views_story_id":             false,
+		"idx_reactions_story_id":               false,
+		"idx_follows_follower_id":              false,
+		"idx_stories_visibility_created":       false,
+		"idx_stories_author_visibility_created": false,
+		"idx_story_audience_user_id":           false,
+		"idx_reactions_user_story":             false,
+		"idx_follows_followed_id":              false,
+	}
+
+	for rows.Next() {
+		var indexName string
+		err := rows.Scan(&indexName)
+		if err != nil {
+			continue
+		}
+		if _, exists := indexes[indexName]; exists {
+			indexes[indexName] = true
+		}
+	}
+
+	return indexes, nil
 }
 
 func (p *Postgres) CreateStory(authorID, text, mediaKey string, visibility types.Visibility, audienceUserIDs []string) (string, error) {
