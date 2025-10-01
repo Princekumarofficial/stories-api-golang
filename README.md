@@ -302,11 +302,11 @@ curl -X POST http://localhost:8080/stories/STORY_ID/view \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
 # React to a story
-curl -X POST http://localhost:8080/stories/STORY_ID/react \
+curl -X POST http://localhost:8080/stories/STORY_ID/reactions \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "reaction_type": "like"
+    "emoji": "❤️"
   }'
 ```
 
@@ -316,8 +316,21 @@ const ws = new WebSocket('ws://localhost:8080/ws?token=YOUR_JWT_TOKEN');
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   console.log('Real-time event:', data);
+  
+  // Handle different event types
+  switch(data.type) {
+    case 'story.viewed':
+      console.log(`User ${data.data.viewer_id} viewed your story`);
+      break;
+    case 'story.reacted':
+      console.log(`User ${data.data.user_id} reacted with ${data.data.emoji}`);
+      break;
+  }
 };
 ```
+
+**Test WebSocket Interface:**
+Open `websocket-test.html` in your browser for an interactive WebSocket test interface.
 
 ### 6. ⚙️ Run Worker → See Expirations in Logs
 

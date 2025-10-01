@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stories Service WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+        .events-log { height: 300px; overflow-y: scroll; background: #f8f9fa; padding: 10px; border: 1px solid #ccc; border-radius: 3px; }
+        .event { margin: 5px 0; padding: 8px; border-radius: 3px; }
+        .event-system { background: #e7f3ff; color: #0066cc; }
+        .event-error { background: #ffe7e7; color: #cc0000; }
+        .event-data { background: #e7ffe7; color: #006600; font-family: monospace; }
+        input[type="text"] { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 3px; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-secondary:hover { background: #545b62; }
+        pre { margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stories Service WebSocket Test</h1>
+        
+        <div class="section">
+            <h3>Connection Setup</h3>
+            <label>JWT Token:</label>
+            <input type="text" id="token" placeholder="Paste your JWT token here">
+            <div>
+                <button class="btn-primary" onclick="connect()">Connect</button>
+                <button class="btn-secondary" onclick="disconnect()">Disconnect</button>
+            </div>
+            
+            <div id="status" class="status disconnected">
+                <strong>Status:</strong> Disconnected
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Real-time Events Log</h3>
+            <div id="events" class="events-log"></div>
+            <button class="btn-secondary" onclick="clearEvents()">Clear Log</button>
+        </div>
+        
+        <div class="section">
+            <h3>Quick Test</h3>
+            <p>After connecting, use another browser tab or API client to:</p>
+            <ol>
+                <li>Create a story with your JWT token</li>
+                <li>Use a different user's token to view or react to your story</li>
+                <li>Watch real-time events appear in the log above</li>
+            </ol>
+            
+            <h4>Sample API calls:</h4>
+            <pre style="background: #f8f9fa; padding: 10px; border-radius: 3px;">
+# View a story (replace STORY_ID and JWT_TOKEN)
+curl -X POST http://localhost:8080/stories/STORY_ID/view \
+  -H "Authorization: Bearer JWT_TOKEN"
+
+# React to a story
+curl -X POST http://localhost:8080/stories/STORY_ID/reactions \
+  -H "Authorization: Bearer JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"emoji":"❤️"}'
+            </pre>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const statusEl = document.getElementById('status');
+        const eventsEl = document.getElementById('events');
+        
+        function connect() {
+            const token = document.getElementById('token').value.trim();
+            if (!token) {
+                alert('Please enter a JWT token');
+                return;
+            }
+            
+            if (ws) {
+                ws.close();
+            }
+            
+            addEvent('Attempting to connect...', 'system');
+            
+            ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+            
+            ws.onopen = function() {
+                statusEl.textContent = 'Status: Connected';
+                statusEl.className = 'status connected';
+                addEvent('✅ Connected to WebSocket successfully!', 'system');
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    addEvent(JSON.stringify(data, null, 2), 'data');
+                    
+                    // Show user-friendly notification
+                    if (data.type === 'story.viewed') {
+                        addEvent(`👀 Someone viewed your story! Viewer: ${data.data.viewer_id}`, 'system');
+                    } else if (data.type === 'story.reacted') {
+                        addEvent(`${data.data.emoji} Someone reacted to your story! User: ${data.data.user_id}`, 'system');
+                    }
+                } catch (e) {
+                    addEvent('Received invalid JSON: ' + event.data, 'error');
+                }
+            };
+            
+            ws.onclose = function(event) {
+                statusEl.textContent = 'Status: Disconnected';
+                statusEl.className = 'status disconnected';
+                
+                if (event.code === 1000) {
+                    addEvent('✅ WebSocket connection closed normally', 'system');
+                } else {
+                    addEvent(`❌ WebSocket connection closed unexpectedly (code: ${event.code})`, 'error');
+                }
+            };
+            
+            ws.onerror = function(error) {
+                statusEl.textContent = 'Status: Error';
+                statusEl.className = 'status disconnected';
+                addEvent('❌ WebSocket error occurred. Check console for details.', 'error');
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close(1000, 'User requested disconnect');
+                ws = null;
+            }
+        }
+        
+        function addEvent(message, type) {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `event event-${type}`;
+            
+            if (type === 'data') {
+                div.innerHTML = `<strong>${time}:</strong><br><pre>${message}</pre>`;
+            } else {
+                div.innerHTML = `<strong>${time}:</strong> ${message}`;
+            }
+            
+            eventsEl.appendChild(div);
+            eventsEl.scrollTop = eventsEl.scrollHeight;
+        }
+        
+        function clearEvents() {
+            eventsEl.innerHTML = '';
+        }
+        
+        // Show initial help message
+        addEvent('Welcome! Enter your JWT token and click Connect to start receiving real-time events.', 'system');
+    </script>
+</body>
+</html>

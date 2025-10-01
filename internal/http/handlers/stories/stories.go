@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/princekumarofficial/stories-service/internal/events"
 	"github.com/princekumarofficial/stories-service/internal/http/middleware"
 	"github.com/princekumarofficial/stories-service/internal/storage"
 	"github.com/princekumarofficial/stories-service/internal/types"
@@ -278,5 +279,140 @@ func GetStory(storage storage.Storage) http.HandlerFunc {
 		}
 
 		response.WriteJSON(w, http.StatusOK, response.RequestOK("Story retrieved successfully", story))
+	}
+}
+
+// ViewStoryWithEvents handles recording a story view with real-time events
+// @Summary Record a story view with real-time notifications
+// @Description Record that a user has viewed a story (idempotent - one view per user) and send real-time notification to author
+// @Tags stories
+// @Param id path string true "Story ID"
+// @Success 200 {object} response.Response "View recorded successfully"
+// @Failure 400 {object} response.Response "Bad request"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 404 {object} response.Response "Story not found"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Security BearerAuth
+// @Router /stories/{id}/view [post]
+func ViewStoryWithEvents(storage storage.Storage, eventPublisher *events.EventPublisher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract user ID from context
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("user not authenticated")))
+			return
+		}
+
+		storyID := r.PathValue("id")
+		if storyID == "" {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("story ID is required")))
+			return
+		}
+
+		// Get story to find the author ID
+		story, err := storage.GetStoryByID(storyID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				response.WriteJSON(w, http.StatusNotFound, response.GeneralError(errors.New("story not found")))
+				return
+			}
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		// Record the view in database
+		err = storage.RecordStoryView(storyID, userID)
+		if err != nil {
+			slog.Error("Failed to record story view", slog.String("error", err.Error()))
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		// Publish real-time event (fire and forget)
+		go func() {
+			err := eventPublisher.PublishStoryViewed(storyID, userID, story.AuthorID)
+			if err != nil {
+				slog.Error("Failed to publish story viewed event", slog.String("error", err.Error()))
+			}
+		}()
+
+		response.WriteJSON(w, http.StatusOK, response.RequestOK("View recorded successfully", nil))
+	}
+}
+
+// AddReactionWithEvents handles adding a reaction to a story with real-time events
+// @Summary Add a reaction to a story with real-time notifications
+// @Description Add an emoji reaction to a story and send real-time notification to author
+// @Tags stories
+// @Accept json
+// @Produce json
+// @Param id path string true "Story ID"
+// @Param reaction body types.ReactionRequest true "Reaction details"
+// @Success 200 {object} response.Response "Reaction added successfully"
+// @Failure 400 {object} response.Response "Bad request"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 404 {object} response.Response "Story not found"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Security BearerAuth
+// @Router /stories/{id}/reactions [post]
+func AddReactionWithEvents(storage storage.Storage, eventPublisher *events.EventPublisher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract user ID from context
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("user not authenticated")))
+			return
+		}
+
+		storyID := r.PathValue("id")
+		if storyID == "" {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("story ID is required")))
+			return
+		}
+
+		var reactionReq types.ReactionRequest
+		err := json.NewDecoder(r.Body).Decode(&reactionReq)
+		if errors.Is(err, io.EOF) {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("request body cannot be empty")))
+			return
+		} else if err != nil {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(err))
+			return
+		}
+
+		// Validate the emoji
+		if !isValidReactionEmoji(reactionReq.Emoji) {
+			response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("invalid emoji: must be one of 👍 ❤️ 😂 😮 😢 🔥")))
+			return
+		}
+
+		// Get story to find the author ID
+		story, err := storage.GetStoryByID(storyID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				response.WriteJSON(w, http.StatusNotFound, response.GeneralError(errors.New("story not found")))
+				return
+			}
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		// Add reaction to database
+		err = storage.AddReaction(storyID, userID, reactionReq.Emoji)
+		if err != nil {
+			slog.Error("Failed to add reaction", slog.String("error", err.Error()))
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+
+		// Publish real-time event (fire and forget)
+		go func() {
+			err := eventPublisher.PublishStoryReacted(storyID, userID, story.AuthorID, reactionReq.Emoji)
+			if err != nil {
+				slog.Error("Failed to publish story reacted event", slog.String("error", err.Error()))
+			}
+		}()
+
+		response.WriteJSON(w, http.StatusOK, response.RequestOK("Reaction added successfully", nil))
 	}
 }

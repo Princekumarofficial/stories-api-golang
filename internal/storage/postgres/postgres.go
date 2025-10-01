@@ -178,7 +178,7 @@ func (p *Postgres) GetUserByEmail(email string) (string, string, error) {
 
 func (p *Postgres) GetAllPublicStories() ([]types.Story, error) {
 	query := `
-	SELECT id, author_id, text, media_key, visibility, created_at, expires_at, COALESCE(deleted_at, '') as deleted_at
+	SELECT id, author_id, text, media_key, visibility, created_at, expires_at, COALESCE(deleted_at::TEXT, '') as deleted_at
 	FROM stories
 	WHERE visibility = 'PUBLIC' AND deleted_at IS NULL
 	ORDER BY created_at DESC
@@ -203,7 +203,7 @@ func (p *Postgres) GetAllPublicStories() ([]types.Story, error) {
 
 func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 	query := `
-	SELECT DISTINCT s.id, s.author_id, s.text, s.media_key, s.visibility, s.created_at, s.expires_at, COALESCE(s.deleted_at, '') as deleted_at
+	SELECT DISTINCT s.id, s.author_id, s.text, s.media_key, s.visibility, s.created_at, s.expires_at, COALESCE(s.deleted_at::TEXT, '') as deleted_at
 	FROM stories s
 	LEFT JOIN story_audience sa ON s.id = sa.story_id
 	WHERE 
@@ -235,7 +235,7 @@ func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 
 func (p *Postgres) GetStoryByID(storyID string) (types.Story, error) {
 	query := `
-	SELECT id, author_id, text, media_key, visibility, created_at, expires_at, COALESCE(deleted_at, '') as deleted_at
+	SELECT id, author_id, text, media_key, visibility, created_at, expires_at, COALESCE(deleted_at::TEXT, '') as deleted_at
 	FROM stories
 	WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -315,16 +315,16 @@ func (p *Postgres) SoftDeleteExpiredStories() (int, error) {
 	WHERE expires_at < CURRENT_TIMESTAMP 
 	AND deleted_at IS NULL
 	`
-	
+
 	result, err := p.Db.Exec(query)
 	if err != nil {
 		return 0, err
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return int(rowsAffected), nil
 }

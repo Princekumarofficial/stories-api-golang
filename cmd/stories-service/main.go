@@ -14,12 +14,15 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/princekumarofficial/stories-service/internal/config"
+	"github.com/princekumarofficial/stories-service/internal/events"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/media"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/stories"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/users"
+	wsHandler "github.com/princekumarofficial/stories-service/internal/http/handlers/websocket"
 	"github.com/princekumarofficial/stories-service/internal/http/middleware"
 	mediaService "github.com/princekumarofficial/stories-service/internal/services/media"
 	"github.com/princekumarofficial/stories-service/internal/storage/postgres"
+	"github.com/princekumarofficial/stories-service/internal/websocket"
 )
 
 // @title Stories Service API
@@ -49,6 +52,14 @@ func main() {
 	}
 	slog.Info("Connected to MinIO")
 
+	// Initialize WebSocket hub
+	hub := websocket.NewHub()
+	go hub.Run()
+	slog.Info("WebSocket hub started")
+
+	// Initialize event publisher
+	eventPublisher := events.NewEventPublisher(hub)
+
 	// Initialize handlers
 	mediaHandlers := media.NewMediaHandlers(mediaService)
 
@@ -62,12 +73,15 @@ func main() {
 		w.Write([]byte("Hello, World!"))
 	})
 
+	// WebSocket route
+	router.HandleFunc("GET /ws", wsHandler.WebSocketHandler(hub, cfg.JWTSecret))
+
 	// Protected routes
 	router.Handle("POST /stories", authMiddleware(http.HandlerFunc(stories.PostStory(storage))))
 	router.Handle("GET /stories/{id}", authMiddleware(http.HandlerFunc(stories.GetStory(storage))))
 	router.Handle("GET /feed", authMiddleware(http.HandlerFunc(stories.Feed(storage))))
-	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStory(storage))))
-	router.Handle("POST /stories/{id}/reactions", authMiddleware(http.HandlerFunc(stories.AddReaction(storage))))
+	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStoryWithEvents(storage, eventPublisher))))
+	router.Handle("POST /stories/{id}/reactions", authMiddleware(http.HandlerFunc(stories.AddReactionWithEvents(storage, eventPublisher))))
 
 	// Media routes (protected)
 	router.Handle("POST /media/upload-url", authMiddleware(http.HandlerFunc(mediaHandlers.GenerateUploadURL())))
