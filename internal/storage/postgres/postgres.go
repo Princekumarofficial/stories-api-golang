@@ -60,7 +60,8 @@ func (p *Postgres) CreateTables() error {
 			media_key VARCHAR(255),
 			visibility VARCHAR(50) NOT NULL CHECK (visibility IN ('FRIENDS', 'PRIVATE', 'PUBLIC')),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours')
+			expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours'),
+			deleted_at TIMESTAMP NULL
 		);
 		`,
 		`
@@ -177,9 +178,9 @@ func (p *Postgres) GetUserByEmail(email string) (string, string, error) {
 
 func (p *Postgres) GetAllPublicStories() ([]types.Story, error) {
 	query := `
-	SELECT id, author_id, text, media_key, visibility, created_at, expires_at
+	SELECT id, author_id, text, media_key, visibility, created_at, expires_at, COALESCE(deleted_at, '') as deleted_at
 	FROM stories
-	WHERE visibility = 'PUBLIC'
+	WHERE visibility = 'PUBLIC' AND deleted_at IS NULL
 	ORDER BY created_at DESC
 	`
 	rows, err := p.Db.Query(query)
@@ -191,7 +192,7 @@ func (p *Postgres) GetAllPublicStories() ([]types.Story, error) {
 	var stories []types.Story
 	for rows.Next() {
 		var s types.Story
-		err := rows.Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt)
+		err := rows.Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt, &s.DeletedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -202,14 +203,16 @@ func (p *Postgres) GetAllPublicStories() ([]types.Story, error) {
 
 func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 	query := `
-	SELECT DISTINCT s.id, s.author_id, s.text, s.media_key, s.visibility, s.created_at, s.expires_at
+	SELECT DISTINCT s.id, s.author_id, s.text, s.media_key, s.visibility, s.created_at, s.expires_at, COALESCE(s.deleted_at, '') as deleted_at
 	FROM stories s
 	LEFT JOIN story_audience sa ON s.id = sa.story_id
 	WHERE 
-		s.visibility = 'PUBLIC'
-		OR (s.visibility = 'FRIENDS' AND sa.user_id = $1)
-		OR (s.visibility = 'PRIVATE' AND sa.user_id = $1)
-		OR s.author_id = $1::integer
+		s.deleted_at IS NULL AND (
+			s.visibility = 'PUBLIC'
+			OR (s.visibility = 'FRIENDS' AND sa.user_id = $1)
+			OR (s.visibility = 'PRIVATE' AND sa.user_id = $1)
+			OR s.author_id = $1::integer
+		)
 	ORDER BY s.created_at DESC
 	`
 	rows, err := p.Db.Query(query, userID)
@@ -221,7 +224,7 @@ func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 	var stories []types.Story
 	for rows.Next() {
 		var s types.Story
-		err := rows.Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt)
+		err := rows.Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt, &s.DeletedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -232,12 +235,12 @@ func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 
 func (p *Postgres) GetStoryByID(storyID string) (types.Story, error) {
 	query := `
-	SELECT id, author_id, text, media_key, visibility, created_at, expires_at
+	SELECT id, author_id, text, media_key, visibility, created_at, expires_at, COALESCE(deleted_at, '') as deleted_at
 	FROM stories
-	WHERE id = $1
+	WHERE id = $1 AND deleted_at IS NULL
 	`
 	var s types.Story
-	err := p.Db.QueryRow(query, storyID).Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt)
+	err := p.Db.QueryRow(query, storyID).Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt, &s.DeletedAt)
 	if err != nil {
 		return s, err
 	}
@@ -250,7 +253,7 @@ func (p *Postgres) CanUserViewStory(storyID, userID string) (bool, error) {
 		   (CASE WHEN sa.user_id IS NOT NULL THEN true ELSE false END) AS in_audience
 	FROM stories s
 	LEFT JOIN story_audience sa ON s.id = sa.story_id AND sa.user_id = $2::integer
-	WHERE s.id = $1
+	WHERE s.id = $1 AND s.deleted_at IS NULL
 	`
 
 	var visibility types.Visibility
@@ -302,4 +305,26 @@ func (p *Postgres) AddReaction(storyID, userID string, emoji types.ReactionType)
 	`
 	_, err = p.Db.Exec(insertQuery, storyID, userID, string(emoji))
 	return err
+}
+
+// SoftDeleteExpiredStories marks expired stories as deleted and returns the count
+func (p *Postgres) SoftDeleteExpiredStories() (int, error) {
+	query := `
+	UPDATE stories 
+	SET deleted_at = CURRENT_TIMESTAMP 
+	WHERE expires_at < CURRENT_TIMESTAMP 
+	AND deleted_at IS NULL
+	`
+	
+	result, err := p.Db.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	
+	return int(rowsAffected), nil
 }

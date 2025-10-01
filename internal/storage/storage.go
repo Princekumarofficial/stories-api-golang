@@ -12,4 +12,6 @@ type Storage interface {
 	CanUserViewStory(storyID, userID string) (bool, error)
 	RecordStoryView(storyID, viewerID string) error
 	AddReaction(storyID, userID string, emoji types.ReactionType) error
+	// Ephemerality methods
+	SoftDeleteExpiredStories() (int, error)
 }
