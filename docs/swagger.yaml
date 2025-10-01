@@ -114,6 +114,19 @@ definitions:
     - email
     - password
     type: object
+  users.UserStats:
+    properties:
+      posted:
+        type: integer
+      reaction_counts:
+        additionalProperties:
+          type: integer
+        type: object
+      unique_viewers:
+        type: integer
+      views:
+        type: integer
+    type: object
 info:
   contact: {}
   description: A simple stories service API
@@ -158,6 +171,30 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: Authenticate a user
+      tags:
+      - users
+  /me/stats:
+    get:
+      description: Get user statistics including posts, views, unique viewers, and
+        reaction breakdown for the last 7 days
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User statistics
+          schema:
+            $ref: '#/definitions/users.UserStats'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get user statistics
       tags:
       - users
   /media:
@@ -449,15 +486,15 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add an emoji reaction to a story (replaces existing reaction if
-        any)
+      description: Add an emoji reaction to a story and send real-time notification
+        to author
       parameters:
       - description: Story ID
         in: path
         name: id
         required: true
         type: string
-      - description: Reaction emoji
+      - description: Reaction details
         in: body
         name: reaction
         required: true
@@ -488,13 +525,13 @@ paths:
             $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
-      summary: Add a reaction to a story
+      summary: Add a reaction to a story with real-time notifications
       tags:
       - stories
   /stories/{id}/view:
     post:
       description: Record that a user has viewed a story (idempotent - one view per
-        user)
+        user) and send real-time notification to author
       parameters:
       - description: Story ID
         in: path
@@ -524,7 +561,7 @@ paths:
             $ref: '#/definitions/response.Response'
       security:
       - BearerAuth: []
-      summary: Record a story view
+      summary: Record a story view with real-time notifications
       tags:
       - stories
 securityDefinitions:

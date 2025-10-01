@@ -328,3 +328,78 @@ func (p *Postgres) SoftDeleteExpiredStories() (int, error) {
 
 	return int(rowsAffected), nil
 }
+
+// GetUserStats returns user statistics for the last 7 days
+func (p *Postgres) GetUserStats(userID string) (int, int, int, map[string]int, error) {
+	var posted, views, uniqueViewers int
+	reactionCounts := make(map[string]int)
+
+	// Get count of stories posted in last 7 days
+	postedQuery := `
+		SELECT COUNT(*) 
+		FROM stories 
+		WHERE author_id = $1 
+		AND created_at >= NOW() - INTERVAL '7 days'
+		AND deleted_at IS NULL
+	`
+	err := p.Db.QueryRow(postedQuery, userID).Scan(&posted)
+	if err != nil {
+		return 0, 0, 0, nil, err
+	}
+
+	// Get total views on user's stories in last 7 days
+	viewsQuery := `
+		SELECT COUNT(sv.id)
+		FROM story_views sv
+		JOIN stories s ON sv.story_id = s.id
+		WHERE s.author_id = $1 
+		AND sv.viewed_at >= NOW() - INTERVAL '7 days'
+		AND s.deleted_at IS NULL
+	`
+	err = p.Db.QueryRow(viewsQuery, userID).Scan(&views)
+	if err != nil {
+		return 0, 0, 0, nil, err
+	}
+
+	// Get unique viewers on user's stories in last 7 days
+	uniqueViewersQuery := `
+		SELECT COUNT(DISTINCT sv.viewer_id)
+		FROM story_views sv
+		JOIN stories s ON sv.story_id = s.id
+		WHERE s.author_id = $1 
+		AND sv.viewed_at >= NOW() - INTERVAL '7 days'
+		AND s.deleted_at IS NULL
+	`
+	err = p.Db.QueryRow(uniqueViewersQuery, userID).Scan(&uniqueViewers)
+	if err != nil {
+		return 0, 0, 0, nil, err
+	}
+
+	// Get reaction breakdown for user's stories in last 7 days
+	reactionsQuery := `
+		SELECT r.reaction_type, COUNT(r.id)
+		FROM reactions r
+		JOIN stories s ON r.story_id = s.id
+		WHERE s.author_id = $1 
+		AND r.reacted_at >= NOW() - INTERVAL '7 days'
+		AND s.deleted_at IS NULL
+		GROUP BY r.reaction_type
+	`
+	rows, err := p.Db.Query(reactionsQuery, userID)
+	if err != nil {
+		return 0, 0, 0, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var reactionType string
+		var count int
+		err := rows.Scan(&reactionType, &count)
+		if err != nil {
+			return 0, 0, 0, nil, err
+		}
+		reactionCounts[reactionType] = count
+	}
+
+	return posted, views, uniqueViewers, reactionCounts, nil
+}

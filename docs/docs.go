@@ -78,6 +78,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/me/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get user statistics including posts, views, unique viewers, and reaction breakdown for the last 7 days",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get user statistics",
+                "responses": {
+                    "200": {
+                        "description": "User statistics",
+                        "schema": {
+                            "$ref": "#/definitions/users.UserStats"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/media": {
             "get": {
                 "security": [
@@ -530,7 +567,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Add an emoji reaction to a story (replaces existing reaction if any)",
+                "description": "Add an emoji reaction to a story and send real-time notification to author",
                 "consumes": [
                     "application/json"
                 ],
@@ -540,7 +577,7 @@ const docTemplate = `{
                 "tags": [
                     "stories"
                 ],
-                "summary": "Add a reaction to a story",
+                "summary": "Add a reaction to a story with real-time notifications",
                 "parameters": [
                     {
                         "type": "string",
@@ -550,7 +587,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Reaction emoji",
+                        "description": "Reaction details",
                         "name": "reaction",
                         "in": "body",
                         "required": true,
@@ -600,11 +637,11 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Record that a user has viewed a story (idempotent - one view per user)",
+                "description": "Record that a user has viewed a story (idempotent - one view per user) and send real-time notification to author",
                 "tags": [
                     "stories"
                 ],
-                "summary": "Record a story view",
+                "summary": "Record a story view with real-time notifications",
                 "parameters": [
                     {
                         "type": "string",
@@ -812,6 +849,26 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "minLength": 6
+                }
+            }
+        },
+        "users.UserStats": {
+            "type": "object",
+            "properties": {
+                "posted": {
+                    "type": "integer"
+                },
+                "reaction_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "unique_viewers": {
+                    "type": "integer"
+                },
+                "views": {
+                    "type": "integer"
                 }
             }
         }

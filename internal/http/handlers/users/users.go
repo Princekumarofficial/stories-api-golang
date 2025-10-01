@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/princekumarofficial/stories-service/internal/http/middleware"
 	"github.com/princekumarofficial/stories-service/internal/storage"
 	"github.com/princekumarofficial/stories-service/internal/types/users"
 	"github.com/princekumarofficial/stories-service/internal/utils/jwt"
@@ -121,5 +122,44 @@ func Login(storage storage.Storage, JWTSecret string) http.HandlerFunc {
 			"user_id": userID,
 			"token":   token,
 		})
+	}
+}
+
+// GetStats returns user statistics for the last 7 days
+// @Summary Get user statistics
+// @Description Get user statistics including posts, views, unique viewers, and reaction breakdown for the last 7 days
+// @Tags users
+// @Produce json
+// @Success 200 {object} users.UserStats "User statistics"
+// @Failure 401 {object} response.Response "Unauthorized"
+// @Failure 500 {object} response.Response "Internal server error"
+// @Security BearerAuth
+// @Router /me/stats [get]
+func GetStats(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get user ID from context (set by auth middleware)
+		userID, ok := middleware.GetUserIDFromContext(r.Context())
+		if !ok {
+			response.WriteJSON(w, http.StatusUnauthorized, response.GeneralError(errors.New("unauthorized")))
+			return
+		}
+
+		// Get user stats from storage
+		posted, views, uniqueViewers, reactionCounts, err := storage.GetUserStats(userID)
+		if err != nil {
+			slog.Error("Failed to get user stats", slog.String("error", err.Error()), slog.String("user_id", userID))
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(errors.New("failed to get user stats")))
+			return
+		}
+
+		// Create response
+		stats := users.UserStats{
+			Posted:         posted,
+			Views:          views,
+			UniqueViewers:  uniqueViewers,
+			ReactionCounts: reactionCounts,
+		}
+
+		response.WriteJSON(w, http.StatusOK, stats)
 	}
 }

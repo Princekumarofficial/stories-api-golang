@@ -82,6 +82,7 @@ func main() {
 	router.Handle("GET /feed", authMiddleware(http.HandlerFunc(stories.Feed(storage))))
 	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStoryWithEvents(storage, eventPublisher))))
 	router.Handle("POST /stories/{id}/reactions", authMiddleware(http.HandlerFunc(stories.AddReactionWithEvents(storage, eventPublisher))))
+	router.Handle("GET /me/stats", authMiddleware(http.HandlerFunc(users.GetStats(storage))))
 
 	// Media routes (protected)
 	router.Handle("POST /media/upload-url", authMiddleware(http.HandlerFunc(mediaHandlers.GenerateUploadURL())))

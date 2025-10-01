@@ -16,3 +16,10 @@ type User struct {
 	Password  string `json:"password"`
 	CreatedAt string `json:"created_at"`
 }
+
+type UserStats struct {
+	Posted         int                    `json:"posted"`
+	Views          int                    `json:"views"`
+	UniqueViewers  int                    `json:"unique_viewers"`
+	ReactionCounts map[string]int         `json:"reaction_counts"`
+}
