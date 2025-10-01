@@ -1,7 +1,9 @@
 package storage
 
+import "github.com/princekumarofficial/stories-service/internal/types"
+
 type Storage interface {
-	CreateStory(authorID, text, mediaKey, visibility string, audienceUserIDs []string) (string, error)
+	CreateStory(authorID, text, mediaKey string, visibility types.Visibility, audienceUserIDs []string) (string, error)
 	CreateUser(email, password string) (string, error)
 	GetUserByEmail(email string) (string, string, error)
 }

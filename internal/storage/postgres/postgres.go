@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/princekumarofficial/stories-service/internal/config"
+	"github.com/princekumarofficial/stories-service/internal/types"
 )
 
 type Postgres struct {
@@ -57,7 +58,7 @@ func (p *Postgres) CreateTables() error {
 			author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			text TEXT,
 			media_key VARCHAR(255),
-			visibility VARCHAR(50) NOT NULL CHECK (visibility IN ('FRIENDS','PRIVATE')),
+			visibility VARCHAR(50) NOT NULL CHECK (visibility IN ('FRIENDS','PRIVATE', 'PUBLIC')),
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 			expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours'),
 		);
@@ -99,7 +100,7 @@ func (p *Postgres) CreateTables() error {
 	return nil
 }
 
-func (p *Postgres) CreateStory(authorID, text, mediaKey, visibility string, audienceUserIDs []string) (string, error) {
+func (p *Postgres) CreateStory(authorID, text, mediaKey string, visibility types.Visibility, audienceUserIDs []string) (string, error) {
 	var storyID int
 	query := `
 	INSERT INTO stories (author_id, text, media_key, visibility, audience_user_ids)
