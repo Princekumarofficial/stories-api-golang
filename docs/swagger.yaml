@@ -61,9 +61,9 @@ definitions:
     type: object
   types.Visibility:
     enum:
-    - public
-    - friends
-    - private
+    - PUBLIC
+    - FRIENDS
+    - PRIVATE
     type: string
     x-enum-varnames:
     - VisibilityPublic
@@ -380,6 +380,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Create a new story
+      tags:
+      - stories
+  /stories/{id}/view:
+    post:
+      description: Record that a user has viewed a story (idempotent - one view per
+        user)
+      parameters:
+      - description: Story ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: View recorded successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Story not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Record a story view
       tags:
       - stories
 securityDefinitions:

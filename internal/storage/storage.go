@@ -9,4 +9,5 @@ type Storage interface {
 	GetAllPublicStories() ([]types.Story, error)
 	GetStoriesForUser(userID string) ([]types.Story, error)
 	GetStoryByID(storyID string) (types.Story, error)
+	RecordStoryView(storyID, viewerID string) error
 }

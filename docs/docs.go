@@ -461,6 +461,61 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/stories/{id}/view": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Record that a user has viewed a story (idempotent - one view per user)",
+                "tags": [
+                    "stories"
+                ],
+                "summary": "Record a story view",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Story ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "View recorded successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Story not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -557,9 +612,9 @@ const docTemplate = `{
         "types.Visibility": {
             "type": "string",
             "enum": [
-                "public",
-                "friends",
-                "private"
+                "PUBLIC",
+                "FRIENDS",
+                "PRIVATE"
             ],
             "x-enum-varnames": [
                 "VisibilityPublic",
@@ -620,8 +675,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "A simple stories service API",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {

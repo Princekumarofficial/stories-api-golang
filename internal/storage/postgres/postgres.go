@@ -243,3 +243,13 @@ func (p *Postgres) GetStoryByID(storyID string) (types.Story, error) {
 	}
 	return s, nil
 }
+
+func (p *Postgres) RecordStoryView(storyID, viewerID string) error {
+	query := `
+	INSERT INTO story_views (story_id, viewer_id)
+	VALUES ($1, $2)
+	ON CONFLICT (story_id, viewer_id) DO NOTHING
+	`
+	_, err := p.Db.Exec(query, storyID, viewerID)
+	return err
+}
