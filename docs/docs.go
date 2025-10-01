@@ -29,6 +29,74 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/feed/cached": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get stories feed with Redis caching (30-60s TTL)",
+                "tags": [
+                    "stories"
+                ],
+                "summary": "Get cached stories feed",
+                "responses": {
+                    "200": {
+                        "description": "Cached feed retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/feed/optimized": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get stories feed with caching and preloaded metadata to avoid N+1 queries",
+                "tags": [
+                    "stories"
+                ],
+                "summary": "Get optimized stories feed",
+                "responses": {
+                    "200": {
+                        "description": "Optimized feed retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/follow/{user_id}": {
             "post": {
                 "security": [

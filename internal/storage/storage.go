@@ -17,6 +17,8 @@ type Storage interface {
 	FollowUser(followerID, followedID string) error
 	UnfollowUser(followerID, followedID string) error
 	IsFollowing(followerID, followedID string) (bool, error)
+	GetUserFollowees(userID string) ([]string, error) // Get list of users this user follows
+	GetUserFollowers(userID string) ([]string, error) // Get list of users following this user
 	// Ephemerality methods
 	SoftDeleteExpiredStories() (int, error)
 }

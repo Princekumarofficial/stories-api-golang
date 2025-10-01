@@ -14,6 +14,7 @@ import (
 	_ "github.com/princekumarofficial/stories-service/docs"
 	httpSwagger "github.com/swaggo/http-swagger"
 
+	"github.com/princekumarofficial/stories-service/internal/cache"
 	"github.com/princekumarofficial/stories-service/internal/config"
 	"github.com/princekumarofficial/stories-service/internal/events"
 	"github.com/princekumarofficial/stories-service/internal/http/handlers/media"
@@ -82,6 +83,11 @@ func main() {
 	// Initialize rate limiting
 	rateLimitConfig := middleware.NewRateLimitConfig(redisClient)
 
+	// Initialize caching layer
+	cacheService := cache.NewCacheService(storage, redisClient)
+	optimizedQuery := cache.NewOptimizedFeedQuery(storage.GetDB())
+	slog.Info("Cache service initialized")
+
 	// setup server
 	router := http.NewServeMux()
 
@@ -96,16 +102,17 @@ func main() {
 	router.HandleFunc("GET /ws", wsHandler.WebSocketHandler(hub, cfg.JWTSecret))
 
 	// Protected routes with rate limiting
-	router.Handle("POST /stories", authMiddleware(rateLimitConfig.RateLimitedHandler("stories", stories.PostStory(storage))))
-	router.Handle("GET /stories/{id}", authMiddleware(http.HandlerFunc(stories.GetStory(storage))))
-	router.Handle("GET /feed", authMiddleware(http.HandlerFunc(stories.Feed(storage))))
-	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStoryWithEvents(storage, eventPublisher))))
-	router.Handle("POST /stories/{id}/reactions", authMiddleware(rateLimitConfig.RateLimitedHandler("reactions", stories.AddReactionWithEvents(storage, eventPublisher))))
-	router.Handle("GET /me/stats", authMiddleware(http.HandlerFunc(users.GetStats(storage))))
+	router.Handle("POST /stories", authMiddleware(rateLimitConfig.RateLimitedHandler("stories", stories.PostStory(cacheService))))
+	router.Handle("GET /stories/{id}", authMiddleware(http.HandlerFunc(stories.GetStory(cacheService))))
+	router.Handle("GET /feed", authMiddleware(http.HandlerFunc(stories.CachedFeed(cacheService))))
+	router.Handle("GET /feed/optimized", authMiddleware(http.HandlerFunc(stories.OptimizedFeed(cacheService, optimizedQuery))))
+	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStoryWithEvents(cacheService, eventPublisher))))
+	router.Handle("POST /stories/{id}/reactions", authMiddleware(rateLimitConfig.RateLimitedHandler("reactions", stories.AddReactionWithEvents(cacheService, eventPublisher))))
+	router.Handle("GET /me/stats", authMiddleware(http.HandlerFunc(users.GetStats(cacheService))))
 
 	// Follow/Unfollow routes
-	router.Handle("POST /follow/{user_id}", authMiddleware(http.HandlerFunc(users.FollowUser(storage))))
-	router.Handle("DELETE /follow/{user_id}", authMiddleware(http.HandlerFunc(users.UnfollowUser(storage))))
+	router.Handle("POST /follow/{user_id}", authMiddleware(http.HandlerFunc(users.FollowUser(cacheService))))
+	router.Handle("DELETE /follow/{user_id}", authMiddleware(http.HandlerFunc(users.UnfollowUser(cacheService))))
 
 	// Media routes (protected)
 	router.Handle("POST /media/upload-url", authMiddleware(http.HandlerFunc(mediaHandlers.GenerateUploadURL())))
@@ -115,11 +122,15 @@ func main() {
 	router.Handle("DELETE /media/{object_key}", authMiddleware(http.HandlerFunc(mediaHandlers.DeleteMedia())))
 
 	// Public routes
-	router.HandleFunc("POST /signup", users.SignUp(storage))
-	router.HandleFunc("POST /login", users.Login(storage, cfg.JWTSecret))
+	router.Handle("POST /signup", http.HandlerFunc(users.SignUp(storage)))
+	router.Handle("POST /login", http.HandlerFunc(users.Login(storage, cfg.JWTSecret)))
 
-	// Swagger UI endpoint
-	router.HandleFunc("GET /swagger/", httpSwagger.WrapHandler)
+	// Cache monitoring endpoints (for development/admin)
+	router.Handle("GET /cache/stats", http.HandlerFunc(cache.GetCacheStats(redisClient)))
+	router.Handle("DELETE /cache/clear", http.HandlerFunc(cache.ClearCache(redisClient)))
+
+	// Documentation
+	router.Handle("GET /docs/", httpSwagger.WrapHandler)
 
 	// setup router
 

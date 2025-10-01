@@ -141,6 +141,49 @@ paths:
       summary: Get stories feed
       tags:
       - stories
+  /feed/cached:
+    get:
+      description: Get stories feed with Redis caching (30-60s TTL)
+      responses:
+        "200":
+          description: Cached feed retrieved successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get cached stories feed
+      tags:
+      - stories
+  /feed/optimized:
+    get:
+      description: Get stories feed with caching and preloaded metadata to avoid N+1
+        queries
+      responses:
+        "200":
+          description: Optimized feed retrieved successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get optimized stories feed
+      tags:
+      - stories
   /follow/{user_id}:
     delete:
       description: Unfollow a user to stop seeing their FRIENDS visibility stories

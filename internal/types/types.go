@@ -19,6 +19,21 @@ type Story struct {
 	DeletedAt  string     `json:"deleted_at"`
 }
 
+// StoryWithMeta extends Story with preloaded metadata to avoid N+1 queries
+type StoryWithMeta struct {
+	Story
+	// Author information
+	AuthorEmail string `json:"author_email"`
+
+	// Story statistics
+	ViewCount     int `json:"view_count"`
+	ReactionCount int `json:"reaction_count"`
+
+	// User-specific flags
+	UserHasViewed bool   `json:"user_has_viewed"`
+	UserReaction  string `json:"user_reaction"`
+}
+
 type StoryPostRequest struct {
 	Text            string     `json:"text"`
 	MediaKey        string     `json:"media_key"`

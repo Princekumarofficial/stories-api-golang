@@ -14,6 +14,11 @@ type Postgres struct {
 	Db *sql.DB
 }
 
+// GetDB returns the underlying database connection
+func (p *Postgres) GetDB() *sql.DB {
+	return p.Db
+}
+
 func NewPostgres(cfg *config.Config) (*Postgres, error) {
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		cfg.PGSQL.Host, cfg.PGSQL.Port, cfg.PGSQL.User, cfg.PGSQL.Password, cfg.PGSQL.DBName, cfg.PGSQL.SSLMode)
@@ -590,4 +595,54 @@ func (p *Postgres) IsFollowing(followerID, followedID string) (bool, error) {
 	var exists bool
 	err := p.Db.QueryRow(query, followerID, followedID).Scan(&exists)
 	return exists, err
+}
+
+// GetUserFollowees returns list of user IDs that this user follows
+func (p *Postgres) GetUserFollowees(userID string) ([]string, error) {
+	query := `
+		SELECT followed_id 
+		FROM follows 
+		WHERE follower_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := p.Db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var followees []string
+	for rows.Next() {
+		var followedID string
+		if err := rows.Scan(&followedID); err != nil {
+			return nil, err
+		}
+		followees = append(followees, followedID)
+	}
+	return followees, nil
+}
+
+// GetUserFollowers returns list of user IDs that follow this user
+func (p *Postgres) GetUserFollowers(userID string) ([]string, error) {
+	query := `
+		SELECT follower_id 
+		FROM follows 
+		WHERE followed_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := p.Db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var followers []string
+	for rows.Next() {
+		var followerID string
+		if err := rows.Scan(&followerID); err != nil {
+			return nil, err
+		}
+		followers = append(followers, followerID)
+	}
+	return followers, nil
 }
