@@ -9,3 +9,18 @@ pgsql:
 http_server:
   address: "localhost:8080"
 jwt_secret: "not_so_secret_key"
+minio:
+  endpoint: "localhost:9000"
+  access_key_id: "minioadmin"
+  secret_access_key: "minioadmin"
+  use_ssl: false
+  bucket_name: "stories-media"
+media:
+  max_file_size: 10485760  # 10MB
+  allowed_mime_types:
+    - "image/jpeg"
+    - "image/png"
+    - "image/gif"
+    - "video/mp4"
+    - "video/mpeg"
+  presigned_url_ttl: 3600  # 1 hour

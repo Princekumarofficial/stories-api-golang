@@ -1,8 +1,44 @@
 basePath: /
 definitions:
+  media.MediaInfoResponse:
+    properties:
+      content_type:
+        type: string
+      media_url:
+        type: string
+      object_key:
+        type: string
+      size:
+        type: integer
+      uploaded_at:
+        type: string
+    type: object
+  media.UploadURLRequest:
+    properties:
+      content_type:
+        type: string
+    required:
+    - content_type
+    type: object
+  media.UploadURLResponse:
+    properties:
+      content_type:
+        type: string
+      expires_at:
+        type: integer
+      max_file_size:
+        type: integer
+      object_key:
+        type: string
+      upload_url:
+        type: string
+    type: object
   response.Response:
     properties:
+      data: {}
       error:
+        type: string
+      message:
         type: string
       status:
         type: string
@@ -89,6 +125,181 @@ paths:
       summary: Authenticate a user
       tags:
       - users
+  /media:
+    get:
+      description: List all media files uploaded by the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Media files retrieved successfully
+          schema:
+            items:
+              $ref: '#/definitions/media.MediaInfoResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: List user media files
+      tags:
+      - media
+  /media/{object_key}:
+    delete:
+      description: Delete a specific media file
+      parameters:
+      - description: Object key
+        in: path
+        name: object_key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Media file deleted successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Media not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete media file
+      tags:
+      - media
+  /media/{object_key}/download-url:
+    get:
+      description: Generate a presigned URL for downloading media files
+      parameters:
+      - description: Object key
+        in: path
+        name: object_key
+        required: true
+        type: string
+      - description: 'Expiration time in seconds (default: 3600)'
+        in: query
+        name: expires
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Download URL generated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Media not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Generate presigned download URL
+      tags:
+      - media
+  /media/{object_key}/info:
+    get:
+      description: Get information about a specific media file
+      parameters:
+      - description: Object key
+        in: path
+        name: object_key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Media information retrieved successfully
+          schema:
+            $ref: '#/definitions/media.MediaInfoResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Media not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get media file information
+      tags:
+      - media
+  /media/upload-url:
+    post:
+      consumes:
+      - application/json
+      description: Generate a presigned URL for uploading media files
+      parameters:
+      - description: Upload URL request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/media.UploadURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Upload URL generated successfully
+          schema:
+            $ref: '#/definitions/media.UploadURLResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Generate presigned upload URL
+      tags:
+      - media
   /signup:
     post:
       consumes:

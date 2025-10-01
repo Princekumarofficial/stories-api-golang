@@ -82,8 +82,8 @@ go run cmd/stories-service/main.go
 ### 🔧 Manual Setup
 
 ```bash
-# 1. Start PostgreSQL
-docker-compose up -d postgres
+# 1. Start PostgreSQL and MinIO
+docker-compose up -d
 
 # 2. Install dependencies
 go mod tidy
@@ -92,10 +92,38 @@ go mod tidy
 # go run cmd/migrate/main.go up
 
 # 4. Start the service
-go run cmd/stories-service/main.go
+CONFIG_PATH=config/local.yaml go run cmd/stories-service/main.go
 ```
 
-The service will be available at `http://localhost:8080`
+The service will be available at:
+- **API Server**: `http://localhost:8080`
+- **MinIO Console**: `http://localhost:9001` (admin/admin)
+- **MinIO API**: `http://localhost:9000`
+
+## 🎯 Media Upload Configuration
+
+### MinIO Setup
+The application uses MinIO for object storage with the following default configuration:
+
+- **Endpoint**: `localhost:9000`
+- **Access Key**: `minioadmin`
+- **Secret Key**: `minioadmin`
+- **Bucket**: `stories-media`
+- **Console**: `http://localhost:9001`
+
+### Supported Media Types
+- **Images**: `image/jpeg`, `image/png`, `image/gif`
+- **Videos**: `video/mp4`, `video/mpeg`
+- **Max File Size**: 10MB (configurable)
+- **Upload URL TTL**: 1 hour (configurable)
+
+### Security Features
+- ✅ Content-type validation
+- ✅ File size limits
+- ✅ User-isolated storage paths
+- ✅ Presigned URL expiration
+- ✅ JWT authentication required
+- ✅ Object ownership verification
 
 ## 📖 API Walkthrough
 
@@ -129,7 +157,81 @@ curl -X POST http://localhost:8080/login \
 }
 ```
 
-### 2. 📁 Get Presigned URL → Upload Media
+### 2. 📁 Media Upload with MinIO
+
+#### Generate Upload URL
+```bash
+# Get presigned upload URL
+curl -X POST http://localhost:8080/media/upload-url \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content_type": "image/jpeg"
+  }'
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Upload URL generated successfully",
+  "data": {
+    "object_key": "users/12345/media/550e8400-e29b-41d4-a716-446655440000.jpg",
+    "upload_url": "http://localhost:9000/stories-media/users/12345/media/550e8400-e29b-41d4-a716-446655440000.jpg?...",
+    "expires_at": 1640995200,
+    "max_file_size": 10485760,
+    "content_type": "image/jpeg"
+  }
+}
+```
+
+#### Upload File to MinIO
+```bash
+# Upload file using the presigned URL
+curl -X PUT "PRESIGNED_UPLOAD_URL" \
+  -H "Content-Type: image/jpeg" \
+  --data-binary @path/to/your/image.jpg
+```
+
+#### List User Media
+```bash
+# Get all media files for authenticated user
+curl -X GET http://localhost:8080/media \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Media files retrieved successfully",
+  "data": [
+    {
+      "object_key": "users/12345/media/550e8400-e29b-41d4-a716-446655440000.jpg",
+      "size": 1024000,
+      "content_type": "image/jpeg",
+      "uploaded_at": "2024-01-01T12:00:00Z",
+      "media_url": "http://localhost:9000/stories-media/users/12345/media/550e8400-e29b-41d4-a716-446655440000.jpg"
+    }
+  ]
+}
+```
+
+#### Get Media Info
+```bash
+# Get information about a specific media file
+curl -X GET "http://localhost:8080/media/users%2F12345%2Fmedia%2F550e8400-e29b-41d4-a716-446655440000.jpg/info" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### Generate Download URL
+```bash
+# Get presigned download URL
+curl -X GET "http://localhost:8080/media/users%2F12345%2Fmedia%2F550e8400-e29b-41d4-a716-446655440000.jpg/download-url?expires=3600" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### 2. 📁 Get Presigned URL → Upload Media (Legacy)
 
 ```bash
 # Get upload URL (replace with actual endpoint when implemented)

@@ -13,6 +13,8 @@ type Config struct {
 	PGSQL      PQSQL      `yaml:"pgsql" env-required:"true"`
 	HTTPServer HTTPServer `yaml:"http_server" env-required:"true"`
 	JWTSecret  string     `yaml:"jwt_secret" env-required:"true" env-default:"super_secret_key"`
+	MinIO      MinIO      `yaml:"minio" env-required:"true"`
+	Media      Media      `yaml:"media" env-required:"true"`
 }
 
 type HTTPServer struct {
@@ -26,6 +28,20 @@ type PQSQL struct {
 	Password string `yaml:"password" env-required:"true" env-default:"password"`
 	DBName   string `yaml:"dbname" env-required:"true" env-default:"stories_db"`
 	SSLMode  string `yaml:"sslmode" env-required:"true" env-default:"disable"`
+}
+
+type MinIO struct {
+	Endpoint        string `yaml:"endpoint" env-required:"true" env-default:"localhost:9000"`
+	AccessKeyID     string `yaml:"access_key_id" env-required:"true" env-default:"minioadmin"`
+	SecretAccessKey string `yaml:"secret_access_key" env-required:"true" env-default:"minioadmin"`
+	UseSSL          bool   `yaml:"use_ssl" env-default:"false"`
+	BucketName      string `yaml:"bucket_name" env-required:"true" env-default:"stories-media"`
+}
+
+type Media struct {
+	MaxFileSize      int64    `yaml:"max_file_size" env-default:"10485760"` // 10MB default
+	AllowedMimeTypes []string `yaml:"allowed_mime_types" env-default:"image/jpeg,image/png,image/gif,video/mp4,video/mpeg"`
+	PresignedURLTTL  int      `yaml:"presigned_url_ttl" env-default:"3600"` // 1 hour default in seconds
 }
 
 func MustLoad() *Config {

@@ -66,6 +66,281 @@
                 }
             }
         },
+        "/media": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List all media files uploaded by the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "List user media files",
+                "responses": {
+                    "200": {
+                        "description": "Media files retrieved successfully",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/media.MediaInfoResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/upload-url": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate a presigned URL for uploading media files",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Generate presigned upload URL",
+                "parameters": [
+                    {
+                        "description": "Upload URL request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/media.UploadURLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Upload URL generated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/media.UploadURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/{object_key}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a specific media file",
+                "tags": [
+                    "media"
+                ],
+                "summary": "Delete media file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Object key",
+                        "name": "object_key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Media file deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Media not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/{object_key}/download-url": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate a presigned URL for downloading media files",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Generate presigned download URL",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Object key",
+                        "name": "object_key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Expiration time in seconds (default: 3600)",
+                        "name": "expires",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Download URL generated successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Media not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/media/{object_key}/info": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get information about a specific media file",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Get media file information",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Object key",
+                        "name": "object_key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Media information retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/media.MediaInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Media not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/signup": {
             "post": {
                 "description": "Register a new user account",
@@ -177,10 +452,65 @@
         }
     },
     "definitions": {
+        "media.MediaInfoResponse": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "media_url": {
+                    "type": "string"
+                },
+                "object_key": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "uploaded_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "media.UploadURLRequest": {
+            "type": "object",
+            "required": [
+                "content_type"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "media.UploadURLResponse": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "integer"
+                },
+                "max_file_size": {
+                    "type": "integer"
+                },
+                "object_key": {
+                    "type": "string"
+                },
+                "upload_url": {
+                    "type": "string"
+                }
+            }
+        },
         "response.Response": {
             "type": "object",
             "properties": {
+                "data": {},
                 "error": {
+                    "type": "string"
+                },
+                "message": {
                     "type": "string"
                 },
                 "status": {

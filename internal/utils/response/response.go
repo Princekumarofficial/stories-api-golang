@@ -8,8 +8,10 @@ import (
 )
 
 type Response struct {
-	Status string `json:"status"`
-	Error  string `json:"error"`
+	Status  string      `json:"status"`
+	Error   string      `json:"error,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+	Message string      `json:"message,omitempty"`
 }
 
 const (
@@ -41,5 +43,13 @@ func ValidationError(errs validator.ValidationErrors) Response {
 	return Response{
 		Status: StatusError,
 		Error:  errorMessages,
+	}
+}
+
+func RequestOK(message string, data interface{}) Response {
+	return Response{
+		Status:  StatusSuccess,
+		Message: message,
+		Data:    data,
 	}
 }

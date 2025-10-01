@@ -1,1 +1,27 @@
-env: "dev"
+env: "production"
+pgsql:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "password123"
+  dbname: "stories_db"
+  sslmode: "disable"
+http_server:
+  address: "0.0.0.0:8080"
+jwt_secret: "super_secret_production_key_change_this"
+minio:
+  endpoint: "localhost:9000"
+  access_key_id: "minioadmin"
+  secret_access_key: "minioadmin"
+  use_ssl: false
+  bucket_name: "stories-media"
+media:
+  max_file_size: 52428800  # 50MB
+  allowed_mime_types:
+    - "image/jpeg"
+    - "image/png"
+    - "image/gif"
+    - "video/mp4"
+    - "video/mpeg"
+    - "video/webm"
+  presigned_url_ttl: 3600  # 1 hour
