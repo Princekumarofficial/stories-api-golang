@@ -1,0 +1,66 @@
+# Docker Compose for GitHub Actions testing
+version: '3.8'
+
+services:
+  stories-service:
+    image: ghcr.io/princekumarofficial/stories-api-golang/stories-service:${STORIES_VERSION:-latest}
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/stories_db
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  ephemeral-worker:
+    image: ghcr.io/princekumarofficial/stories-api-golang/ephemeral-worker:${WORKER_VERSION:-latest}
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/stories_db
+      - MINIO_ENDPOINT=minio:9000
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: stories_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  app-network:
+    driver: bridge
