@@ -20,26 +20,26 @@ echo -e "${YELLOW}Version: ${VERSION}${NC}"
 echo -e "${YELLOW}Registry: ${REGISTRY}${NC}"
 
 # Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
+if ! sudo docker info > /dev/null 2>&1; then
     echo -e "${RED}❌ Docker is not running. Please start Docker first.${NC}"
     exit 1
 fi
 
 # Pull latest images
 echo -e "${GREEN}📥 Pulling Docker images...${NC}"
-docker pull ${REGISTRY}/stories-service:${VERSION}
-docker pull ${REGISTRY}/ephemeral-worker:${VERSION}
+sudo docker pull ${REGISTRY}/stories-service:${VERSION}
+sudo docker pull ${REGISTRY}/ephemeral-worker:${VERSION}
 
 # Stop existing containers
 echo -e "${YELLOW}🛑 Stopping existing containers...${NC}"
-docker-compose -f docker-compose.production.yml down || true
+sudo docker compose -f docker-compose.production.yml down || true
 
 # Start new containers
 echo -e "${GREEN}🚀 Starting containers...${NC}"
 export STORIES_VERSION=${VERSION}
 export WORKER_VERSION=${VERSION}
 
-docker-compose -f docker-compose.production.yml up -d
+sudo docker compose -f docker-compose.production.yml up -d
 
 # Wait for services to be healthy
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
@@ -51,7 +51,8 @@ if curl -f http://localhost:8080/health > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Stories service is healthy${NC}"
 else
     echo -e "${RED}❌ Stories service health check failed${NC}"
-    docker-compose -f docker-compose.production.yml logs stories-service
+    echo -e "${YELLOW}📋 Stories service logs:${NC}"
+    sudo docker compose -f docker-compose.production.yml logs --tail=20 stories-service
     exit 1
 fi
 
@@ -62,4 +63,4 @@ echo -e "  - MinIO Console: http://localhost:9001"
 
 # Show running containers
 echo -e "${GREEN}📊 Running containers:${NC}"
-docker-compose -f docker-compose.production.yml ps
+sudo docker compose -f docker-compose.production.yml ps

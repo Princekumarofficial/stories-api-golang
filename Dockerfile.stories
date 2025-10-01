@@ -17,11 +17,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o stories-service .
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata
-WORKDIR /root/
+WORKDIR /app
 
 # Copy the binary and config
 COPY --from=builder /app/stories-service .
-COPY --from=builder /app/config ./config
+COPY --from=builder /app/config /app/config
 
 EXPOSE 8080
 
