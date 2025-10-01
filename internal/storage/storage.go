@@ -9,5 +9,7 @@ type Storage interface {
 	GetAllPublicStories() ([]types.Story, error)
 	GetStoriesForUser(userID string) ([]types.Story, error)
 	GetStoryByID(storyID string) (types.Story, error)
+	CanUserViewStory(storyID, userID string) (bool, error)
 	RecordStoryView(storyID, viewerID string) error
+	AddReaction(storyID, userID string, emoji types.ReactionType) error
 }

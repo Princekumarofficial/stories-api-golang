@@ -244,6 +244,39 @@ func (p *Postgres) GetStoryByID(storyID string) (types.Story, error) {
 	return s, nil
 }
 
+func (p *Postgres) CanUserViewStory(storyID, userID string) (bool, error) {
+	query := `
+	SELECT s.visibility, s.author_id,
+		   (CASE WHEN sa.user_id IS NOT NULL THEN true ELSE false END) AS in_audience
+	FROM stories s
+	LEFT JOIN story_audience sa ON s.id = sa.story_id AND sa.user_id = $2::integer
+	WHERE s.id = $1
+	`
+
+	var visibility types.Visibility
+	var authorID string
+	var inAudience bool
+
+	err := p.Db.QueryRow(query, storyID, userID).Scan(&visibility, &authorID, &inAudience)
+	if err != nil {
+		return false, err
+	}
+
+	// Check permission rules based on visibility and graph
+	switch visibility {
+	case types.VisibilityPublic:
+		return true, nil
+	case types.VisibilityFriends:
+		// User can view if they are the author or in the audience
+		return authorID == userID || inAudience, nil
+	case types.VisibilityPrivate:
+		// User can view if they are the author or in the audience
+		return authorID == userID || inAudience, nil
+	default:
+		return false, nil
+	}
+}
+
 func (p *Postgres) RecordStoryView(storyID, viewerID string) error {
 	query := `
 	INSERT INTO story_views (story_id, viewer_id)
@@ -251,5 +284,22 @@ func (p *Postgres) RecordStoryView(storyID, viewerID string) error {
 	ON CONFLICT (story_id, viewer_id) DO NOTHING
 	`
 	_, err := p.Db.Exec(query, storyID, viewerID)
+	return err
+}
+
+func (p *Postgres) AddReaction(storyID, userID string, emoji types.ReactionType) error {
+	// First, remove any existing reaction from this user for this story
+	deleteQuery := `DELETE FROM reactions WHERE story_id = $1 AND user_id = $2`
+	_, err := p.Db.Exec(deleteQuery, storyID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Then add the new reaction
+	insertQuery := `
+	INSERT INTO reactions (story_id, user_id, reaction_type)
+	VALUES ($1, $2, $3)
+	`
+	_, err = p.Db.Exec(insertQuery, storyID, userID, string(emoji))
 	return err
 }

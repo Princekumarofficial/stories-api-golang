@@ -43,6 +43,29 @@ definitions:
       status:
         type: string
     type: object
+  types.ReactionRequest:
+    properties:
+      emoji:
+        $ref: '#/definitions/types.ReactionType'
+    required:
+    - emoji
+    type: object
+  types.ReactionType:
+    enum:
+    - "\U0001F44D"
+    - ❤️
+    - "\U0001F602"
+    - "\U0001F62E"
+    - "\U0001F622"
+    - "\U0001F525"
+    type: string
+    x-enum-varnames:
+    - ReactionThumbsUp
+    - ReactionHeart
+    - ReactionLaugh
+    - ReactionSurprised
+    - ReactionSad
+    - ReactionFire
   types.StoryPostRequest:
     properties:
       audience_user_ids:
@@ -380,6 +403,92 @@ paths:
       security:
       - BearerAuth: []
       summary: Create a new story
+      tags:
+      - stories
+  /stories/{id}:
+    get:
+      description: Get a specific story by its ID with permission checks based on
+        visibility and graph
+      parameters:
+      - description: Story ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Story retrieved successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden - no permission to view this story
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Story not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a story by ID
+      tags:
+      - stories
+  /stories/{id}/reactions:
+    post:
+      consumes:
+      - application/json
+      description: Add an emoji reaction to a story (replaces existing reaction if
+        any)
+      parameters:
+      - description: Story ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Reaction emoji
+        in: body
+        name: reaction
+        required: true
+        schema:
+          $ref: '#/definitions/types.ReactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Reaction added successfully
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Story not found
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: Add a reaction to a story
       tags:
       - stories
   /stories/{id}/view:

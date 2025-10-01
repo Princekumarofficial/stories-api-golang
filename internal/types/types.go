@@ -25,3 +25,26 @@ type StoryPostRequest struct {
 	Visibility      Visibility `validate:"required" json:"visibility"`
 	AudienceUserIDs []string   `validate:"required" json:"audience_user_ids"`
 }
+
+type ReactionType string
+
+const (
+	ReactionThumbsUp  ReactionType = "👍"
+	ReactionHeart     ReactionType = "❤️"
+	ReactionLaugh     ReactionType = "😂"
+	ReactionSurprised ReactionType = "😮"
+	ReactionSad       ReactionType = "😢"
+	ReactionFire      ReactionType = "🔥"
+)
+
+type Reaction struct {
+	ID        string       `json:"id"`
+	StoryID   string       `json:"story_id"`
+	UserID    string       `json:"user_id"`
+	Emoji     ReactionType `json:"emoji"`
+	ReactedAt string       `json:"reacted_at"`
+}
+
+type ReactionRequest struct {
+	Emoji ReactionType `json:"emoji" validate:"required"`
+}
