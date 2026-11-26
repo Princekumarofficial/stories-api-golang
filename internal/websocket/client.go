@@ -1,13 +1,10 @@
 package websocket
 
 import (
-	"encoding/json"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/princekumarofficial/stories-service/internal/types"
 )
 
 const (
@@ -24,22 +21,12 @@ const (
 	maxMessageSize = 512
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// Allow connections from any origin for development
-		// In production, you should check the origin
-		return true
-	},
-}
-
 // Client represents a WebSocket client connection
 type Client struct {
 	// The websocket connection
 	conn *websocket.Conn
 
-	// Buffered channel of outbound messages
+	// Buffered channel of outbound messages. Only the hub sends on or closes it.
 	send chan []byte
 
 	// User ID associated with this connection
@@ -126,22 +113,6 @@ func (c *Client) writePump() {
 				return
 			}
 		}
-	}
-}
-
-// SendEvent sends an event to this client
-func (c *Client) SendEvent(event *types.Event) error {
-	data, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-
-	select {
-	case c.send <- data:
-		return nil
-	default:
-		close(c.send)
-		return websocket.ErrCloseSent
 	}
 }
 

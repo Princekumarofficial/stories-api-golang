@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/princekumarofficial/stories-service/internal/utils/response"
@@ -14,6 +15,17 @@ type CacheStats struct {
 	RedisInfo      map[string]string `json:"redis_info"`
 	CacheKeys      []string          `json:"cache_keys_sample"`
 	KeyCount       int               `json:"total_keys"`
+}
+
+// cachePatterns maps the ?type= of /cache/clear to the key patterns it deletes.
+// "all" means all CACHE keys: it deliberately leaves rate_limit:* buckets alone,
+// so clearing the cache cannot reset everyone's rate limits.
+var cachePatterns = map[string][]string{
+	"feed":      {"feed:*"},
+	"followees": {"user:followees:*"},
+	"stats":     {"user:stats:*"},
+	"stories":   {"story:*"},
+	"all":       {"feed:*", "user:followees:*", "user:stats:*", "story:*"},
 }
 
 // GetCacheStats returns cache performance statistics
@@ -40,13 +52,14 @@ func GetCacheStats(redisClient *redis.Client) http.HandlerFunc {
 			stats.RedisInfo["info"] = "available"
 		}
 
-		// Get cache keys (sample)
-		keys := redisClient.Keys(ctx, "user:*")
-		if keys.Err() == nil {
-			stats.CacheKeys = keys.Val()
-			if len(stats.CacheKeys) > 10 {
-				stats.CacheKeys = stats.CacheKeys[:10] // Show only first 10
+		// Sample a few cache keys with one SCAN step. KEYS walks the entire
+		// keyspace in a single blocking call and stalls every other Redis client.
+		sample, _, err := redisClient.Scan(ctx, 0, "user:*", 100).Result()
+		if err == nil {
+			if len(sample) > 10 {
+				sample = sample[:10] // Show only first 10
 			}
+			stats.CacheKeys = sample
 		}
 
 		// Get total key count
@@ -65,42 +78,23 @@ func ClearCache(redisClient *redis.Client) http.HandlerFunc {
 		ctx := context.Background()
 
 		// Get cache type from query parameter
-		cacheType := r.URL.Query().Get("type")
-
-		var pattern string
-		switch cacheType {
-		case "feed":
-			pattern = "feed:*"
-		case "followees":
-			pattern = "user:followees:*"
-		case "stats":
-			pattern = "user:stats:*"
-		case "stories":
-			pattern = "story:*"
-		case "all":
-			pattern = "*"
-		default:
-			pattern = "feed:*" // Default to feed cache
+		patterns, ok := cachePatterns[r.URL.Query().Get("type")]
+		if !ok {
+			patterns = cachePatterns["feed"] // Default to feed cache
 		}
+		pattern := strings.Join(patterns, ",")
 
-		// Delete matching keys
-		keys := redisClient.Keys(ctx, pattern)
-		if keys.Err() != nil {
-			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(keys.Err()))
+		deleted, sample, err := deleteByPatterns(ctx, redisClient, patterns)
+		if err != nil {
+			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
 			return
 		}
 
-		if len(keys.Val()) > 0 {
-			deleted := redisClient.Del(ctx, keys.Val()...)
-			if deleted.Err() != nil {
-				response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(deleted.Err()))
-				return
-			}
-
+		if deleted > 0 {
 			result := map[string]interface{}{
 				"pattern":      pattern,
-				"deleted_keys": deleted.Val(),
-				"keys_sample":  keys.Val()[:min(len(keys.Val()), 5)], // Show first 5 deleted keys
+				"deleted_keys": deleted,
+				"keys_sample":  sample, // First 5 deleted keys
 			}
 			response.WriteJSON(w, http.StatusOK, response.RequestOK("Cache cleared successfully", result))
 		} else {
@@ -114,9 +108,41 @@ func ClearCache(redisClient *redis.Client) http.HandlerFunc {
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// deleteByPatterns removes keys matching the patterns. It finds them with SCAN,
+// in small steps, instead of KEYS (which blocks Redis for the whole walk), and
+// frees them with UNLINK in batches. Matching keys are collected before any are
+// deleted, so deleting cannot shift the scan cursor and skip keys. It returns
+// the number of deleted keys and up to five of their names.
+func deleteByPatterns(ctx context.Context, rdb *redis.Client, patterns []string) (int64, []string, error) {
+	const batchSize = 500
+
+	var keys []string
+	for _, pattern := range patterns {
+		iter := rdb.Scan(ctx, 0, pattern, batchSize).Iterator()
+		for iter.Next(ctx) {
+			keys = append(keys, iter.Val())
+		}
+		if err := iter.Err(); err != nil {
+			return 0, nil, err
+		}
 	}
-	return b
+
+	var deleted int64
+	for start := 0; start < len(keys); start += batchSize {
+		end := start + batchSize
+		if end > len(keys) {
+			end = len(keys)
+		}
+		n, err := rdb.Unlink(ctx, keys[start:end]...).Result()
+		if err != nil {
+			return deleted, nil, err
+		}
+		deleted += n
+	}
+
+	sample := keys
+	if len(sample) > 5 {
+		sample = sample[:5]
+	}
+	return deleted, sample, nil
 }

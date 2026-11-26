@@ -29,6 +29,9 @@ type PQSQL struct {
 	Password string `yaml:"password" env-required:"true" env-default:"password"`
 	DBName   string `yaml:"dbname" env-required:"true" env-default:"stories_db"`
 	SSLMode  string `yaml:"sslmode" env-required:"true" env-default:"disable"`
+	// Upper bound on open connections per process. Keep
+	// (number of API + worker processes) * max_open_conns below Postgres max_connections (default 100).
+	MaxOpenConns int `yaml:"max_open_conns" env-default:"20"`
 }
 
 type MinIO struct {

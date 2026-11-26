@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"log/slog"
 	"net/http"
@@ -125,9 +126,13 @@ func main() {
 	router.Handle("POST /signup", http.HandlerFunc(users.SignUp(storage)))
 	router.Handle("POST /login", http.HandlerFunc(users.Login(storage, cfg.JWTSecret)))
 
-	// Cache monitoring endpoints (for development/admin)
-	router.Handle("GET /cache/stats", http.HandlerFunc(cache.GetCacheStats(redisClient)))
-	router.Handle("DELETE /cache/clear", http.HandlerFunc(cache.ClearCache(redisClient)))
+	// Cache monitoring endpoints (for development/admin). These used to be public
+	// in every environment, so anyone could flush Redis, rate-limit buckets
+	// included. Now they require a valid token and are not registered in production.
+	if cfg.Env != "production" {
+		router.Handle("GET /cache/stats", authMiddleware(http.HandlerFunc(cache.GetCacheStats(redisClient))))
+		router.Handle("DELETE /cache/clear", authMiddleware(http.HandlerFunc(cache.ClearCache(redisClient))))
+	}
 
 	// Documentation
 	router.Handle("GET /docs/", httpSwagger.WrapHandler)
@@ -137,6 +142,13 @@ func main() {
 	server := http.Server{
 		Addr:    cfg.HTTPServer.Address,
 		Handler: router,
+		// Without timeouts, slow or idle clients can hold connections and their
+		// goroutines open indefinitely. WebSocket connections are not cut off:
+		// gorilla/websocket clears these deadlines when it upgrades the connection.
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	log.Println("server started on", cfg.HTTPServer.Address)
@@ -146,7 +158,9 @@ func main() {
 
 	go func() {
 		err := server.ListenAndServe()
-		if err != nil {
+		// ErrServerClosed is the normal result of Shutdown; treating it as fatal
+		// exited the process before in-flight requests could finish.
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("failed to start server: %s", err)
 		}
 	}()
@@ -157,15 +171,15 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Close Redis connection
-	if err := redisClient.Close(); err != nil {
-		slog.Error("failed to close Redis connection", slog.String("error", err.Error()))
-	}
-
+	// Stop accepting requests and let in-flight ones finish first; they may still
+	// need Redis, so close it only afterwards.
 	err = server.Shutdown(ctx)
 	if err != nil {
 		slog.Error("failed to gracefully shutdown server", slog.String("error", err.Error()))
-		return
+	}
+
+	if err := redisClient.Close(); err != nil {
+		slog.Error("failed to close Redis connection", slog.String("error", err.Error()))
 	}
 
 	slog.Info("Server stopped")
