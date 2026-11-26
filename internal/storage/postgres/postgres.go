@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/princekumarofficial/stories-service/internal/config"
@@ -28,6 +29,18 @@ func NewPostgres(cfg *config.Config) (*Postgres, error) {
 		log.Fatal(err)
 		return nil, err
 	}
+
+	// Cap the pool. With no limit, database/sql opens a new connection for every
+	// concurrent query, and under load Postgres starts refusing them with
+	// "too many clients". Requests now wait briefly for a free connection instead.
+	maxOpen := cfg.PGSQL.MaxOpenConns
+	if maxOpen <= 0 {
+		maxOpen = 20
+	}
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(maxOpen)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetConnMaxLifetime(30 * time.Minute)
 
 	err = db.Ping()
 	if err != nil {
@@ -103,6 +116,12 @@ func (p *Postgres) CreateTables() error {
 		}
 	}
 
+	// Required for correctness (not just speed): see ensureStoryViewsUniqueIndex.
+	if err := p.ensureStoryViewsUniqueIndex(); err != nil {
+		log.Printf("Warning: failed to create unique index on story_views(story_id, viewer_id); "+
+			"POST /stories/{id}/view will fail until it exists: %v", err)
+	}
+
 	// Create indexes for better performance
 	err := p.CreateIndexes()
 	if err != nil {
@@ -111,6 +130,35 @@ func (p *Postgres) CreateTables() error {
 	}
 
 	return nil
+}
+
+// ensureStoryViewsUniqueIndex creates the unique index that RecordStoryView's
+// `ON CONFLICT (story_id, viewer_id)` depends on. Postgres rejects ON CONFLICT
+// unless a unique index matches the conflict target, so without it every
+// POST /stories/{id}/view returned 500.
+//
+// Databases created before this index may already hold duplicate views, which
+// would make the index build fail. They are removed first, in the same
+// transaction (a DO block), and only while the index does not exist yet, so this
+// runs at most once and rolls back entirely if the build fails. Keeping one row
+// per (story, viewer) matches the endpoint's "one view per user" behaviour.
+func (p *Postgres) ensureStoryViewsUniqueIndex() error {
+	_, err := p.Db.Exec(`
+	DO $$
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1 FROM pg_indexes
+			WHERE tablename = 'story_views' AND indexname = 'idx_story_views_story_viewer'
+		) THEN
+			DELETE FROM story_views a
+			USING story_views b
+			WHERE a.id > b.id AND a.story_id = b.story_id AND a.viewer_id = b.viewer_id;
+
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_story_views_story_viewer
+				ON story_views (story_id, viewer_id);
+		END IF;
+	END $$;`)
+	return err
 }
 
 // CreateIndexes creates database indexes for better query performance
@@ -172,7 +220,9 @@ func (p *Postgres) CreateIndexes() error {
 	return nil
 }
 
-// DropIndexes drops all custom indexes (useful for maintenance)
+// DropIndexes drops all custom indexes (useful for maintenance).
+// It intentionally leaves idx_story_views_story_viewer in place: that unique
+// index is required by RecordStoryView, not just a performance index.
 func (p *Postgres) DropIndexes() error {
 	indexes := []string{
 		"DROP INDEX CONCURRENTLY IF EXISTS idx_stories_author_created",
@@ -219,6 +269,7 @@ func (p *Postgres) CheckIndexes() (map[string]bool, error) {
 		"idx_stories_expires_at":                false,
 		"idx_stories_active":                    false,
 		"idx_story_views_story_id":              false,
+		"idx_story_views_story_viewer":          false,
 		"idx_reactions_story_id":                false,
 		"idx_follows_follower_id":               false,
 		"idx_stories_visibility_created":        false,
