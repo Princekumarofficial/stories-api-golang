@@ -29,6 +29,7 @@ func NewCacheService(storage storage.Storage, redisClient *redis.Client) *CacheS
 const (
 	UserFolloweesKey = "user:followees:%s" // user:followees:userID
 	FeedCacheKey     = "feed:user:%s"      // feed:user:userID
+	FeedFirstPageKey = "feed:page1:%s"
 	StoryKey         = "story:%s"          // story:storyID
 	UserStatsKey     = "user:stats:%s"     // user:stats:userID
 )
@@ -99,11 +100,43 @@ func (c *CacheService) GetCachedFeed(ctx context.Context, userID string) ([]type
 	return stories, nil
 }
 
-// InvalidateUserCache clears user-related caches
+// Cache only the default first page so invalidation stays bounded per viewer.
+func (c *CacheService) GetFeedPage(ctx context.Context, userID string, before *types.FeedCursor, limit int) ([]types.Story, error) {
+	if before != nil || limit != types.DefaultFeedLimit {
+		return c.storage.GetFeedPage(ctx, userID, before, limit)
+	}
+	key := fmt.Sprintf(FeedFirstPageKey, userID)
+	if data, err := c.redis.Get(ctx, key).Bytes(); err == nil {
+		var page []types.Story
+		if json.Unmarshal(data, &page) == nil && page != nil {
+			return page, nil
+		}
+	}
+	page, err := c.storage.GetFeedPage(ctx, userID, nil, limit)
+	if err != nil {
+		return nil, err
+	}
+	ttl := FeedCacheDuration
+	for _, story := range page {
+		expiry, err := time.Parse(time.RFC3339Nano, story.ExpiresAt)
+		if err != nil {
+			return page, nil
+		}
+		if remaining := time.Until(expiry); remaining < ttl {
+			ttl = remaining
+		}
+	}
+	if data, err := json.Marshal(page); err == nil && ttl >= time.Millisecond {
+		c.redis.Set(ctx, key, data, ttl)
+	}
+	return page, nil
+}
+
 func (c *CacheService) InvalidateUserCache(ctx context.Context, userID string) {
 	keys := []string{
 		fmt.Sprintf(UserFolloweesKey, userID),
 		fmt.Sprintf(FeedCacheKey, userID),
+		fmt.Sprintf(FeedFirstPageKey, userID),
 		fmt.Sprintf(UserStatsKey, userID),
 	}
 
@@ -118,9 +151,9 @@ func (c *CacheService) InvalidateFeedCaches(ctx context.Context, userIDs []strin
 		return
 	}
 
-	keys := make([]string, len(userIDs))
-	for i, userID := range userIDs {
-		keys[i] = fmt.Sprintf(FeedCacheKey, userID)
+	keys := make([]string, 0, 2*len(userIDs))
+	for _, userID := range userIDs {
+		keys = append(keys, fmt.Sprintf(FeedCacheKey, userID), fmt.Sprintf(FeedFirstPageKey, userID))
 	}
 
 	c.redis.Del(ctx, keys...)

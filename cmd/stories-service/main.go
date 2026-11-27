@@ -105,7 +105,7 @@ func main() {
 	// Protected routes with rate limiting
 	router.Handle("POST /stories", authMiddleware(rateLimitConfig.RateLimitedHandler("stories", stories.PostStory(cacheService))))
 	router.Handle("GET /stories/{id}", authMiddleware(http.HandlerFunc(stories.GetStory(cacheService))))
-	router.Handle("GET /feed", authMiddleware(http.HandlerFunc(stories.CachedFeed(cacheService))))
+	router.Handle("GET /feed", authMiddleware(stories.Feed(cacheService)))
 	router.Handle("GET /feed/optimized", authMiddleware(http.HandlerFunc(stories.OptimizedFeed(cacheService, optimizedQuery))))
 	router.Handle("POST /stories/{id}/view", authMiddleware(http.HandlerFunc(stories.ViewStoryWithEvents(cacheService, eventPublisher))))
 	router.Handle("POST /stories/{id}/reactions", authMiddleware(rateLimitConfig.RateLimitedHandler("reactions", stories.AddReactionWithEvents(cacheService, eventPublisher))))

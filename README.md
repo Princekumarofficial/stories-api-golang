@@ -217,6 +217,13 @@ curl -X POST http://localhost:8080/follow/$FRIEND_USER_ID \
 ```
 
 #### Get Your Personalized Feed
+
+`GET /feed` returns up to 50 visible, unexpired stories in `data`, newest first.
+Set `limit` to a value from 1 to 100 to change the page size. When the response
+includes `next_cursor`, pass it as `cursor` on the next request. The final
+page omits `next_cursor`. Stories created at the same time are ordered by
+descending story ID.
+
 ```bash
 # Regular feed
 curl -X GET http://localhost:8080/feed \

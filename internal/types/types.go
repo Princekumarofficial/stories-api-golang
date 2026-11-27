@@ -1,5 +1,12 @@
 package types
 
+const DefaultFeedLimit = 50
+
+type FeedCursor struct {
+	CreatedAt string
+	ID        int
+}
+
 type Visibility string
 
 const (

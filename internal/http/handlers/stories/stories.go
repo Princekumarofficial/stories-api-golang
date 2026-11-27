@@ -2,11 +2,15 @@ package stories
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/princekumarofficial/stories-service/internal/events"
@@ -20,6 +24,8 @@ import (
 // @Summary Get stories feed
 // @Tags stories
 // @Security BearerAuth
+// @Param limit query int false "Page size (1-100, default 50)"
+// @Param cursor query string false "next_cursor from the previous page"
 // @Router /feed [get]
 func Feed(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +36,62 @@ func Feed(storage storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		stories, err := storage.GetStoriesForUser(userID)
+		query := r.URL.Query()
+		limit := types.DefaultFeedLimit
+		if query.Has("limit") {
+			n, err := strconv.Atoi(query.Get("limit"))
+			if err != nil || n < 1 || n > 100 {
+				response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(errors.New("limit must be between 1 and 100")))
+				return
+			}
+			limit = n
+		}
+		var before *types.FeedCursor
+		if query.Has("cursor") {
+			var err error
+			before, err = decodeFeedCursor(query.Get("cursor"))
+			if err != nil {
+				response.WriteJSON(w, http.StatusBadRequest, response.GeneralError(err))
+				return
+			}
+		}
+		stories, err := storage.GetFeedPage(r.Context(), userID, before, limit)
 		if err != nil {
 			response.WriteJSON(w, http.StatusInternalServerError, response.GeneralError(err))
 			return
 		}
 
-		response.WriteJSON(w, http.StatusOK, response.RequestOK("Stories fetched successfully", stories))
+		var next string
+		if len(stories) > limit {
+			stories = stories[:limit]
+			last := stories[limit-1]
+			next = base64.RawURLEncoding.EncodeToString([]byte(last.CreatedAt + "|" + last.ID))
+		}
+		response.WriteJSON(w, http.StatusOK, struct {
+			response.Response
+			NextCursor string `json:"next_cursor,omitempty"`
+		}{response.RequestOK("Cached feed retrieved successfully", stories), next})
 	}
+}
+
+func decodeFeedCursor(token string) (*types.FeedCursor, error) {
+	invalid := errors.New("invalid feed cursor")
+	if len(token) > 96 {
+		return nil, invalid
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return nil, invalid
+	}
+	stamp, idText, ok := strings.Cut(string(raw), "|")
+	id, err := strconv.ParseInt(idText, 10, 32)
+	if !ok || err != nil || id < 1 {
+		return nil, invalid
+	}
+	if _, err := time.Parse(time.RFC3339Nano, stamp); err != nil {
+		return nil, invalid
+	}
+	return &types.FeedCursor{CreatedAt: stamp, ID: int(id)}, nil
 }
 
 // PostStory handles creating a new story

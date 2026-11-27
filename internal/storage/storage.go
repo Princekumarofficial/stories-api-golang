@@ -1,6 +1,10 @@
 package storage
 
-import "github.com/princekumarofficial/stories-service/internal/types"
+import (
+	"context"
+
+	"github.com/princekumarofficial/stories-service/internal/types"
+)
 
 type Storage interface {
 	CreateStory(authorID, text, mediaKey string, visibility types.Visibility, audienceUserIDs []string) (string, error)
@@ -8,6 +12,7 @@ type Storage interface {
 	GetUserByEmail(email string) (string, string, error)
 	GetAllPublicStories() ([]types.Story, error)
 	GetStoriesForUser(userID string) ([]types.Story, error)
+	GetFeedPage(ctx context.Context, userID string, before *types.FeedCursor, limit int) ([]types.Story, error)
 	GetStoryByID(storyID string) (types.Story, error)
 	CanUserViewStory(storyID, userID string) (bool, error)
 	RecordStoryView(storyID, viewerID string) error

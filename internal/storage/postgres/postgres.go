@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -164,6 +165,9 @@ func (p *Postgres) ensureStoryViewsUniqueIndex() error {
 // CreateIndexes creates database indexes for better query performance
 func (p *Postgres) CreateIndexes() error {
 	indexes := []string{
+		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_feed_page
+		 ON stories (created_at DESC, id DESC) WHERE deleted_at IS NULL`,
+
 		// Index on stories(author_id, created_at DESC) for efficient author story queries
 		`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stories_author_created 
 		 ON stories (author_id, created_at DESC)`,
@@ -424,6 +428,39 @@ func (p *Postgres) GetStoriesForUser(userID string) ([]types.Story, error) {
 		stories = append(stories, s)
 	}
 	return stories, nil
+}
+
+// GetFeedPage fetches one extra row to determine whether another page exists.
+func (p *Postgres) GetFeedPage(ctx context.Context, userID string, before *types.FeedCursor, limit int) ([]types.Story, error) {
+	query := `
+	SELECT s.id, s.author_id, s.text, s.media_key, s.visibility, s.created_at, s.expires_at, ''
+	FROM stories s
+	WHERE s.deleted_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP
+	  AND (s.visibility = 'PUBLIC' OR s.author_id = $1
+	    OR (s.visibility = 'FRIENDS' AND EXISTS (
+	      SELECT 1 FROM follows WHERE follower_id = $1 AND followed_id = s.author_id))
+	    OR (s.visibility = 'PRIVATE' AND EXISTS (
+	      SELECT 1 FROM story_audience WHERE story_id = s.id AND user_id = $1)))`
+	args := []interface{}{userID, limit + 1}
+	if before != nil {
+		query += " AND (s.created_at, s.id) < ($3::timestamp, $4::integer)"
+		args = append(args, before.CreatedAt, before.ID)
+	}
+	query += " ORDER BY s.created_at DESC, s.id DESC LIMIT $2"
+	rows, err := p.Db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	stories := make([]types.Story, 0, limit+1)
+	for rows.Next() {
+		var s types.Story
+		if err := rows.Scan(&s.ID, &s.AuthorID, &s.Text, &s.MediaKey, &s.Visibility, &s.CreatedAt, &s.ExpiresAt, &s.DeletedAt); err != nil {
+			return nil, err
+		}
+		stories = append(stories, s)
+	}
+	return stories, rows.Err()
 }
 
 func (p *Postgres) GetStoryByID(storyID string) (types.Story, error) {
